@@ -86,7 +86,7 @@ Download from [python.org](https://www.python.org/downloads/). During install, c
 ### 2. Download SimTrack
 
 ```
-https://github.com/yourusername/simtrack/archive/refs/heads/main.zip
+https://github.com/Palminze/simtrack/archive/refs/heads/main.zip
 ```
 
 Extract the zip somewhere on your PC (e.g. `C:\SimTrack`).
