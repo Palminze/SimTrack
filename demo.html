@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimTrack Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; width: 100vw; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+
+    /* ── Scene (moves with head) ── */
+    #scene {
+      position: absolute;
+      inset: -15%;
+      will-change: transform;
+    }
+
+    /* Sky — golden hour */
+    #sky {
+      position: absolute;
+      inset: 0 0 38% 0;
+      background: linear-gradient(180deg,
+        #0b1426 0%,
+        #14223e 25%,
+        #1e3c70 55%,
+        #c06820 80%,
+        #e8901e 90%,
+        #f5b832 100%
+      );
+    }
+
+    /* Horizon haze */
+    #haze {
+      position: absolute;
+      bottom: 36%; left: 0; right: 0;
+      height: 14%;
+      background: linear-gradient(180deg, transparent 0%, rgba(210,110,20,0.22) 100%);
+      filter: blur(10px);
+    }
+
+    /* Sun */
+    #sun {
+      position: absolute;
+      bottom: 37%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff8d0 0%, #ffe050 28%, #ff9a00 58%, transparent 80%);
+      box-shadow: 0 0 100px 40px rgba(255,140,0,0.3), 0 0 200px 100px rgba(255,100,0,0.12);
+    }
+
+    /* Clouds */
+    .cloud {
+      position: absolute;
+      background: rgba(255,210,140,0.07);
+      border-radius: 100px;
+      filter: blur(3px);
+    }
+    .cl1 { width: 300px; height: 28px; top: 25%; left: 4%; }
+    .cl2 { width: 180px; height: 18px; top: 16%; left: 62%; }
+    .cl3 { width: 380px; height: 30px; top: 10%; right: -2%; }
+    .cl4 { width: 140px; height: 14px; top: 34%; left: 40%; }
+
+    /* Mountains */
+    #mountains {
+      position: absolute;
+      bottom: 38%; left: 0; right: 0;
+      height: 200px;
+    }
+    .mf, .mm { position: absolute; bottom: 0; width: 0; height: 0; border-style: solid; }
+    /* Far — blue haze */
+    .mf1 { border: solid transparent; border-bottom-color: #3a5888; border-width: 0 270px 120px; left:  -2%; }
+    .mf2 { border: solid transparent; border-bottom-color: #304e7a; border-width: 0 340px 155px; left:  18%; }
+    .mf3 { border: solid transparent; border-bottom-color: #375578; border-width: 0 300px 135px; left:  48%; }
+    .mf4 { border: solid transparent; border-bottom-color: #3a5888; border-width: 0 260px 118px; right: -2%; }
+    /* Near — darker */
+    .mm1 { border: solid transparent; border-bottom-color: #1c2e50; border-width: 0 210px 105px; left:  4%; }
+    .mm2 { border: solid transparent; border-bottom-color: #162640; border-width: 0 260px 128px; left:  28%; }
+    .mm3 { border: solid transparent; border-bottom-color: #1a2c4c; border-width: 0 230px 112px; right:  6%; }
+
+    /* Ground */
+    #ground {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 38%;
+      background: linear-gradient(180deg, #243c16 0%, #1a2e10 55%, #131e0a 100%);
+    }
+
+    /* Road */
+    #road-area {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 38%;
+      clip-path: polygon(34% 0%, 66% 0%, 100% 100%, 0% 100%);
+      background: #2c2c2c;
+    }
+    #road-inner {
+      position: absolute;
+      inset: 0;
+      clip-path: polygon(37% 0%, 63% 0%, 100% 100%, 0% 100%);
+      background: linear-gradient(180deg, #303030 0%, #353535 100%);
+    }
+    /* Dashes */
+    .ld {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #d8d0aa;
+      border-radius: 2px;
+      opacity: 0.6;
+    }
+    .ld1 { bottom:  3%; width: 5px; height: 28px; }
+    .ld2 { bottom: 12%; width: 4px; height: 20px; }
+    .ld3 { bottom: 20%; width: 3px; height: 13px; }
+    .ld4 { bottom: 26%; width: 2px; height:  8px; }
+    .ld5 { bottom: 30%; width: 1.5px; height: 5px; }
+
+    /* Armco barriers */
+    .armco {
+      position: absolute;
+      bottom: 38%;
+      height: 13px;
+      border-radius: 3px;
+      background: repeating-linear-gradient(90deg,
+        #aaa 0px, #ccc 6px, #e0e0e0 6px, #ccc 12px, #aaa 12px, #999 18px
+      );
+      box-shadow: 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    .armco-l { left: 21%; right: 63%; }
+    .armco-r { left: 63%; right: 21%; }
+    .ap {
+      position: absolute;
+      bottom: 38%;
+      width: 5px; height: 20px;
+      background: linear-gradient(180deg, #bbb 0%, #777 100%);
+      border-radius: 1px;
+      box-shadow: 1px 0 3px rgba(0,0,0,0.4);
+    }
+    .ap1 { left:  22.5%; }
+    .ap2 { left:  31%; }
+    .ap3 { right: 22.5%; }
+    .ap4 { right: 31%; }
+
+    /* Trees */
+    .tree { position: absolute; bottom: 38%; }
+    .tk { background: #2c1e12; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); border-radius: 2px; }
+    .tt, .tt2 { position: absolute; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-style: solid; }
+
+    /* Left trees */
+    .tla { left:  0%; }  .tla .tk{width:15px;height:44px} .tla .tt{bottom:34px;border-left:38px solid transparent;border-right:38px solid transparent;border-bottom:68px solid #1a4212} .tla .tt2{bottom:68px;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:52px solid #1e4e18}
+    .tlb { left:  4%; }  .tlb .tk{width:11px;height:32px} .tlb .tt{bottom:24px;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:52px solid #183e10} .tlb .tt2{bottom:50px;border-left:21px solid transparent;border-right:21px solid transparent;border-bottom:38px solid #1c4a14}
+    .tlc { left: 10%; }  .tlc .tk{width:7px;height:20px}  .tlc .tt{bottom:14px;border-left:17px solid transparent;border-right:17px solid transparent;border-bottom:32px solid #1a3e12} .tlc .tt2{bottom:30px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:24px solid #1e4816}
+    .tld { left: 17%; }  .tld .tk{width:5px;height:13px}  .tld .tt{bottom:9px; border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:22px solid #183a10} .tld .tt2{bottom:20px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #1c4414}
+
+    /* Right trees */
+    .tra { right:  0%; } .tra .tk{width:15px;height:44px} .tra .tt{bottom:34px;border-left:38px solid transparent;border-right:38px solid transparent;border-bottom:68px solid #1a4212} .tra .tt2{bottom:68px;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:52px solid #1e4e18}
+    .trb { right:  4%; } .trb .tk{width:11px;height:32px} .trb .tt{bottom:24px;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:52px solid #183e10} .trb .tt2{bottom:50px;border-left:21px solid transparent;border-right:21px solid transparent;border-bottom:38px solid #1c4a14}
+    .trc { right: 10%; } .trc .tk{width:7px;height:20px}  .trc .tt{bottom:14px;border-left:17px solid transparent;border-right:17px solid transparent;border-bottom:32px solid #1a3e12} .trc .tt2{bottom:30px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:24px solid #1e4816}
+    .trd { right: 17%; } .trd .tk{width:5px;height:13px}  .trd .tt{bottom:9px; border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:22px solid #183a10} .trd .tt2{bottom:20px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #1c4414}
+
+    /* ── Cockpit (fixed) ── */
+    #cockpit { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+    #roof {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 9%;
+      background: linear-gradient(180deg, #0c0906 85%, transparent);
+    }
+
+    /* A-pillars */
+    #pa {
+      position: absolute;
+      top: 0; left: 0; width: 18vw; height: 100%;
+      background: linear-gradient(108deg, #0c0906 50%, rgba(10,8,5,0.35) 78%, transparent);
+      clip-path: polygon(0 0, 100% 8%, 50% 100%, 0 100%);
+    }
+    #pb {
+      position: absolute;
+      top: 0; right: 0; width: 18vw; height: 100%;
+      background: linear-gradient(252deg, #0c0906 50%, rgba(10,8,5,0.35) 78%, transparent);
+      clip-path: polygon(0 8%, 100% 0, 100% 100%, 50% 100%);
+    }
+
+    /* Dashboard */
+    #dash {
+      position: absolute;
+      bottom: 0; left: -10%; right: -10%;
+      height: 31%;
+      background: linear-gradient(166deg, #191410 0%, #100d08 35%, #0d0a06 100%);
+      border-radius: 54% 54% 0 0 / 22% 22% 0 0;
+      border-top: 1px solid #2c2016;
+      box-shadow: 0 -30px 90px rgba(0,0,0,0.95), inset 0 1px 0 #382c18;
+    }
+    #dash::before {
+      content: '';
+      position: absolute;
+      top: 9%; left: 14%; right: 14%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #36281a 25%, #46381e 50%, #36281a 75%, transparent);
+      opacity: 0.5;
+    }
+
+    /* Warm ambient glow from cluster */
+    #dash-glow {
+      position: absolute;
+      bottom: 30%; left: 22%; right: 22%;
+      height: 4px;
+      background: radial-gradient(ellipse, rgba(255,150,30,0.25) 0%, transparent 70%);
+      filter: blur(8px);
+    }
+
+    /* Rearview mirror */
+    #mirror {
+      position: absolute;
+      top: 10.5%; left: 50%;
+      transform: translateX(-50%);
+      width: 132px; height: 32px;
+      border-radius: 4px 4px 5px 5px;
+      border: 2px solid #201c12;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    #mirror::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    #mirror-scene {
+      width: 100%; height: 100%;
+      background: linear-gradient(180deg, #0e1a32 0%, #1c3254 45%, #1e3220 80%, #192610 100%);
+      transform: scaleX(-1);
+    }
+
+    /* Steering wheel — flat bottom */
+    #wheel {
+      position: absolute;
+      bottom: 13%; left: 50%;
+      transform: translateX(-50%);
+      width: 148px; height: 148px;
+    }
+    #wring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 12px solid #1a1610;
+      clip-path: polygon(0 0, 100% 0, 100% 76%, 78% 95%, 50% 100%, 22% 95%, 0 76%);
+      box-shadow: inset 0 0 0 2px #2c2418, 0 8px 28px rgba(0,0,0,0.95), 0 -1px 4px rgba(255,170,50,0.05);
+    }
+    #wflat {
+      position: absolute;
+      bottom: 0; left: 10px; right: 10px;
+      height: 32px;
+      background: linear-gradient(180deg, #161210 0%, #120e0c 100%);
+      border-radius: 0 0 4px 4px;
+    }
+    #whub {
+      position: absolute;
+      top: 44%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #282018 0%, #181410 100%);
+      border: 2px solid #342c18;
+    }
+    .wspoke {
+      position: absolute;
+      background: #1e1a12;
+      border-radius: 2px;
+    }
+    .wsv { width: 3px; height: 34px; top: 14px; left: 50%; transform: translateX(-50%); }
+    .wsl { width: 32px; height: 3px; top: 46%; left: 13px; transform: translateY(-50%); }
+    .wsr { width: 32px; height: 3px; top: 46%; right: 13px; transform: translateY(-50%); }
+
+    /* Gauges */
+    .gauge {
+      position: absolute;
+      bottom: 16%;
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 42% 38%, #201e16 0%, #0e0c08 100%);
+      border: 2px solid #2a2216;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.025);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #speedo { right: 27%; }
+    #rpm    { left:  27%; }
+    .gauge .gval  { font-size: 15px; font-weight: 700; color: #cec4a8; letter-spacing: -0.5px; }
+    .gauge .gunit { font-size: 7px; color: #4a4028; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed;
+      top: 12px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 4px;
+    }
+    .hval {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.055);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 10px;
+      color: #3a3a3a;
+      backdrop-filter: blur(12px);
+      min-width: 68px;
+      text-align: center;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .hval span { display: block; font-size: 14px; font-weight: 600; color: #90c8a0; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+    #face-status {
+      position: fixed;
+      top: 12px; right: 12px;
+      z-index: 20;
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(0,0,0,0.38);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 5px 10px;
+      font-size: 10px; color: #3c3c3c;
+      backdrop-filter: blur(12px);
+      letter-spacing: 0.3px;
+    }
+    #face-led {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #282828;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    #face-led.on { background: #38c070; box-shadow: 0 0 6px rgba(56,192,112,0.6); }
+
+    #controls {
+      position: fixed;
+      bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex; gap: 6px;
+    }
+    .btn {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 7px;
+      color: #707070;
+      padding: 6px 14px;
+      font-size: 11px; font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .btn:active { background: rgba(255,255,255,0.06); }
+    .btn.active { border-color: #38c070; color: #38c070; }
+
+    /* Loading */
+    #loading {
+      position: fixed; inset: 0;
+      background: #060504;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; z-index: 100;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid #181818;
+      border-top-color: #555;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #load-text { font-size: 15px; font-weight: 600; color: #ccc; letter-spacing: 0.3px; }
+    #load-sub   { font-size: 11px; color: #333; letter-spacing: 0.5px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="load-text">SimTrack</div>
+  <div id="load-sub">Loading face tracker…</div>
+</div>
+
+<!-- Scene -->
+<div id="scene">
+  <div id="sky"></div>
+  <div id="haze"></div>
+  <div id="sun"></div>
+  <div class="cloud cl1"></div>
+  <div class="cloud cl2"></div>
+  <div class="cloud cl3"></div>
+  <div class="cloud cl4"></div>
+
+  <div id="mountains">
+    <div class="mf mf1"></div><div class="mf mf2"></div>
+    <div class="mf mf3"></div><div class="mf mf4"></div>
+    <div class="mm mm1"></div><div class="mm mm2"></div><div class="mm mm3"></div>
+  </div>
+
+  <div id="ground"></div>
+
+  <div id="road-area">
+    <div id="road-inner">
+      <div class="ld ld1"></div><div class="ld ld2"></div>
+      <div class="ld ld3"></div><div class="ld ld4"></div><div class="ld ld5"></div>
+    </div>
+  </div>
+
+  <!-- Trees left -->
+  <div class="tree tla"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree tlb"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree tlc"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree tld"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <!-- Trees right -->
+  <div class="tree tra"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree trb"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree trc"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+  <div class="tree trd"><div class="tk"></div><div class="tt"></div><div class="tt2"></div></div>
+
+  <!-- Barriers -->
+  <div class="armco armco-l"></div>
+  <div class="armco armco-r"></div>
+  <div class="ap ap1"></div><div class="ap ap2"></div>
+  <div class="ap ap3"></div><div class="ap ap4"></div>
+</div>
+
+<!-- Cockpit -->
+<div id="cockpit">
+  <div id="roof"></div>
+  <div id="mirror"><div id="mirror-scene"></div></div>
+  <div id="pa"></div>
+  <div id="pb"></div>
+  <div id="dash-glow"></div>
+  <div id="dash">
+    <div id="wheel">
+      <div id="wring"></div>
+      <div id="wflat"></div>
+      <div id="whub"></div>
+      <div class="wspoke wsv"></div>
+      <div class="wspoke wsl"></div>
+      <div class="wspoke wsr"></div>
+    </div>
+    <div class="gauge" id="speedo"><span class="gval">0</span><span class="gunit">km/h</span></div>
+    <div class="gauge" id="rpm"><span class="gval">0.0</span><span class="gunit">×1000</span></div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hval">Yaw<span id="h-yaw">0.0</span></div>
+  <div class="hval">Pitch<span id="h-pitch">0.0</span></div>
+  <div class="hval">Roll<span id="h-roll">0.0</span></div>
+</div>
+
+<div id="face-status">
+  <div id="face-led"></div>
+  <span id="face-label">Looking for face…</span>
+</div>
+
+<div id="controls">
+  <button class="btn" id="btn-source">Webcam</button>
+  <button class="btn" id="btn-cal">Calibrate</button>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const scene     = document.getElementById('scene');
+const faceLed   = document.getElementById('face-led');
+const faceLabel = document.getElementById('face-label');
+const loading   = document.getElementById('loading');
+const loadText  = document.getElementById('load-sub');
+const hYaw      = document.getElementById('h-yaw');
+const hPitch    = document.getElementById('h-pitch');
+const hRoll     = document.getElementById('h-roll');
+const btnSource = document.getElementById('btn-source');
+const btnCal    = document.getElementById('btn-cal');
+
+let landmarker = null;
+let lastTime   = -1;
+
+let rawYaw = 0, rawPitch = 0, rawRoll = 0;
+let calYaw = 0, calPitch = 0, calRoll = 0;
+let displayYaw = 0, displayPitch = 0;
+
+let source = 'webcam';
+let ws = null;
+
+const video = document.createElement('video');
+video.playsInline = true; video.muted = true; video.autoplay = true;
+video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
+document.body.appendChild(video);
+
+async function startCamera() {
+  loadText.textContent = 'Starting camera…';
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 640 }, height: { ideal: 480 } }
+  });
+  video.srcObject = stream;
+  await new Promise(r => video.onloadedmetadata = r);
+  await video.play();
+}
+
+async function loadLandmarker() {
+  loadText.textContent = 'Loading face tracker…';
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  landmarker = await FaceLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      delegate: "GPU"
+    },
+    outputFacialTransformationMatrixes: true,
+    runningMode: "VIDEO",
+    numFaces: 1
+  });
+}
+
+// In camera space: Y-rotation = left/right turn, X-rotation = nod, Z-rotation = tilt
+function matrixToEuler(m) {
+  const toD = 180 / Math.PI;
+  const headTurn = Math.asin(-Math.max(-1, Math.min(1, m[2]))) * toD;
+  const headNod  = Math.atan2(m[6], m[10]) * toD;
+  const headTilt = Math.atan2(m[1], m[0])  * toD;
+  return {
+    yaw:   -headTurn,
+    pitch: -headNod,
+    roll:   headTilt
+  };
+}
+
+function calibrate() {
+  calYaw = rawYaw; calPitch = rawPitch; calRoll = rawRoll;
+  btnCal.textContent = 'Calibrated';
+  btnCal.classList.add('active');
+  setTimeout(() => { btnCal.textContent = 'Calibrate'; btnCal.classList.remove('active'); }, 1500);
+}
+btnCal.addEventListener('click', calibrate);
+
+function connectPhone() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen    = () => { faceLabel.textContent = 'Phone connected'; faceLed.classList.add('on'); };
+  ws.onclose   = () => { faceLabel.textContent = 'Phone disconnected'; faceLed.classList.remove('on'); };
+  ws.onerror   = () => { faceLabel.textContent = 'WebSocket error — is server.py running?'; };
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      rawYaw = d.yaw ?? 0; rawPitch = d.pitch ?? 0; rawRoll = d.roll ?? 0;
+      updateHUD();
+    } catch {}
+  };
+}
+
+function disconnectPhone() { ws?.close(); ws = null; }
+
+btnSource.addEventListener('click', () => {
+  if (source === 'webcam') {
+    source = 'phone';
+    btnSource.textContent = 'Phone';
+    btnSource.classList.add('active');
+    connectPhone();
+  } else {
+    source = 'webcam';
+    btnSource.textContent = 'Webcam';
+    btnSource.classList.remove('active');
+    disconnectPhone();
+  }
+});
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function updateHUD() {
+  const y = rawYaw - calYaw, p = rawPitch - calPitch, r = rawRoll - calRoll;
+  hYaw.textContent   = y.toFixed(1);
+  hPitch.textContent = p.toFixed(1);
+  hRoll.textContent  = r.toFixed(1);
+}
+
+function updateScene() {
+  const y = rawYaw   - calYaw;
+  const p = rawPitch - calPitch;
+  displayYaw   = lerp(displayYaw,   y, 0.35);
+  displayPitch = lerp(displayPitch, p, 0.35);
+  scene.style.transform = `translate(${-displayYaw * 12}px, ${displayPitch * 8}px) scale(1.18)`;
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  updateScene();
+  if (source !== 'webcam') return;
+  if (!landmarker || video.readyState < 2) return;
+  if (video.currentTime === lastTime) return;
+  lastTime = video.currentTime;
+
+  const result   = landmarker.detectForVideo(video, performance.now());
+  const matrices = result.facialTransformationMatrixes;
+  if (matrices?.length > 0) {
+    faceLed.classList.add('on');
+    faceLabel.textContent = 'Face tracked';
+    const a = matrixToEuler(matrices[0].data);
+    rawYaw = a.yaw; rawPitch = a.pitch; rawRoll = a.roll;
+    updateHUD();
+  } else {
+    faceLed.classList.remove('on');
+    faceLabel.textContent = 'No face — move closer';
+  }
+}
+
+(async () => {
+  try {
+    await startCamera();
+    await loadLandmarker();
+    loading.style.display = 'none';
+    faceLabel.textContent = 'Sit in front of camera, then Calibrate';
+    requestAnimationFrame(loop);
+  } catch (e) {
+    loadText.textContent = e.message ?? 'Error — check camera permission';
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
