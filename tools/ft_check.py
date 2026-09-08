@@ -80,20 +80,23 @@ def udp(args):
 def probe(args):
     """Answer 'is anything actually listening on this port?' without guesswork.
 
-    A UDP bind to a port another process already holds fails on Windows. So a
-    failed bind means opentrack is listening there (good), and a successful
-    bind means nothing is -- opentrack is on a different port.
+    Binding the WILDCARD address is what makes this reliable. Binding
+    127.0.0.1:port can succeed on Windows even while another process holds
+    0.0.0.0:port, because those are distinct addresses -- which produces a
+    false "nothing is listening". Opentrack binds the wildcard, so we probe
+    the wildcard too.
     """
     print(f"Probing UDP {args.host}:{args.port}\n")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listening = False
     try:
-        sock.bind((args.host, args.port))
+        sock.bind(("0.0.0.0", args.port))   # wildcard: see docstring
         sock.close()
         print(f"  [!] Nothing is listening on {args.port}.")
-        print("      This port is free, so opentrack is NOT receiving here.")
-        print("      Open opentrack, click the wrench next to Input, and read")
-        print("      the port it uses -- then re-run with --port <that number>.")
+        print("      Opentrack is not bound here, which means tracking is not")
+        print("      actually running -- opentrack only opens the port after")
+        print("      Start, and only when Input is 'UDP over network'.")
+        print("      Cross-check with:  netstat -ano | findstr " + str(args.port))
     except OSError as exc:
         listening = True
         print(f"  [ok] Port {args.port} is held by another process ({exc.errno}).")
