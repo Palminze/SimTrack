@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+import traceback
 
 # ── Auto-install aiohttp ──────────────────────────────────────────────────────
 try:
@@ -39,47 +40,15 @@ _ui_cb    = None   # set after GUI is created
 
 
 # ── FreeTrack shared memory ───────────────────────────────────────────────────
-# Works with: Assetto Corsa, ETS2, ATS, BeamNG, and any FreeTrack-compatible game
-#
-# struct FTHeadData {
-#   int dataid, camwidth, camheight;
-#   float X1,Y1, X2,Y2, X3,Y3, X4,Y4;  // raw marker points (unused)
-#   float X, Y, Z;                       // translation mm
-#   float Yaw, Pitch, Roll;              // degrees
-#   int handle;
-# }
-class FreeTrack:
-    FMT  = struct.Struct('<3i 14f i')   # 72 bytes
-    NAME = "FT_SharedMem"
-
-    def __init__(self):
-        self.frame  = 0
-        self.active = False
-        if sys.platform == 'win32':
-            try:
-                self.mm     = mmap.mmap(-1, max(self.FMT.size, 128), self.NAME)
-                self.active = True
-                print("[FreeTrack] Shared memory open — AC / ETS2 / BeamNG ready")
-            except Exception as e:
-                print(f"[FreeTrack] Could not create shared memory: {e}")
-        else:
-            print("[FreeTrack] Not on Windows — shared memory disabled")
-
-    def write(self, yaw, pitch, roll, x=0.0, y=0.0, z=0.0):
-        if not self.active:
-            return
-        self.frame = (self.frame + 1) & 0x7FFFFFFF
-        self.mm.seek(0)
-        self.mm.write(self.FMT.pack(
-            self.frame, 640, 480,
-            0.0, 0.0, 0.0, 0.0,   # raw markers
-            0.0, 0.0, 0.0, 0.0,
-            x, y, z,
-            yaw, pitch, roll,
-            0
-        ))
+# The byte layout lives in freetrack.py -- it must match the FreeTrack 2.0
+# public interface exactly. Verify with: python tools/ft_check.py emit
+from freetrack import FreeTrack
 
 freetrack = FreeTrack()
+if freetrack.active:
+    print("[FreeTrack] Shared memory open — AC / ETS2 / BeamNG ready")
+else:
+    print(f"[FreeTrack] Inactive: {freetrack.error}")
 
 
 # ── WebSocket handler ─────────────────────────────────────────────────────────
@@ -138,8 +107,17 @@ async def _run_server():
     await asyncio.Future()
 
 
+server_error = None   # set if the aiohttp thread dies; shown in the GUI
+
+
 def _server_thread():
-    asyncio.run(_run_server())
+    global server_error
+    try:
+        asyncio.run(_run_server())
+    except Exception as exc:                          # noqa: BLE001
+        server_error = f"{type(exc).__name__}: {exc}"
+        print(f"[server] FAILED: {server_error}", file=sys.stderr)
+        traceback.print_exc()
 
 
 # ── GUI ───────────────────────────────────────────────────────────────────────
@@ -171,6 +149,7 @@ class SimTrackApp(tk.Tk):
         self.configure(bg=BG)
         self.resizable(False, False)
         self._build()
+        self._health()
 
     # ── layout ───────────────────────────────────────────────────────────────
     def _build(self):
@@ -251,6 +230,18 @@ class SimTrackApp(tk.Tk):
         self._card_end()
 
         self.geometry("540x540")
+
+    # ── health poll ──────────────────────────────────────────────────────────
+    def _health(self):
+        """Surface failures that used to die silently in the server thread."""
+        if server_error:
+            self._led.config(fg="#ef4444")
+            self._status.set(f"Server failed — {server_error}")
+        elif not freetrack.active and not clients:
+            # Only warn while idle -- never stomp on a live tracking readout.
+            self._led.config(fg=AMBER)
+            self._status.set(f"No game output — {freetrack.error}")
+        self.after(1000, self._health)
 
     def _card_start(self, label):
         outer = tk.Frame(self, bg=CARD,
