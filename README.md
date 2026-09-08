@@ -152,7 +152,9 @@ permissions you grant. The page loads; the camera does not. Use Option B.
 
 ### Option B — Cloudflare Tunnel
 
-`start.bat` / `start.sh` automatically handles this via `cloudflared`. A `trycloudflare.com` URL is printed — open that on your iPhone.
+SimTrack starts the tunnel itself and shows the `https://…trycloudflare.com`
+URL in the window. Open that on your phone — it is the only address that can
+start the camera.
 
 > The tunnel URL changes every time you restart. Bookmark it or re-copy after each restart.
 

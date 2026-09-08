@@ -112,6 +112,18 @@ netstat -ano | findstr <port>
 python tools\ft_check.py probe --port <port>
 ```
 
+### The tunnel was never started on Windows
+
+`start.bat` downloaded `cloudflared.exe` and nothing ever ran it —
+`server_windows.py` had no reference to cloudflared at all, so the GUI only
+ever showed the LAN HTTP address, which cannot start a phone camera. The
+README claimed start.bat "automatically handles this". Only `start.sh` (macOS)
+actually launched a tunnel.
+
+Now in `tunnel.py`: downloads cloudflared if missing, launches it, scrapes the
+https URL from stderr, and pushes it into the GUI. Failures surface in the
+window instead of leaving a blank address.
+
 ### Open items
 
 1. **`FreeTrackClient.dll`** — not yet shipped. Blocks games that use the DLL path.

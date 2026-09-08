@@ -71,6 +71,7 @@ _ui_cb    = None   # set after GUI is created
 # The byte layout lives in freetrack.py -- it must match the FreeTrack 2.0
 # public interface exactly. Verify with: python tools/ft_check.py emit
 from freetrack import FreeTrack
+from tunnel import Tunnel
 
 freetrack = FreeTrack()
 if freetrack.active:
@@ -191,16 +192,31 @@ class SimTrackApp(tk.Tk):
 
         # ── Phone URL card ────────────────────────────────────────────────────
         self._card_start("OPEN ON PHONE")
-        ip = _local_ip()
-        url = f"http://{ip}:{PORT}/index.html"
-        tk.Label(self._card, text=url, bg=CARD, fg=GREEN,
-                 font=("Consolas", 11, "bold"),
+        self._phone_url = tk.StringVar(value="starting secure tunnel…")
+        tk.Label(self._card, textvariable=self._phone_url, bg=CARD, fg=GREEN,
+                 font=("Consolas", 11, "bold"), wraplength=470, justify="left",
                  cursor="hand2").pack(anchor="w", padx=14, pady=(0, 4))
+        self._phone_hint = tk.StringVar(
+            value="The camera only works over HTTPS — waiting for the tunnel.")
+        tk.Label(self._card, textvariable=self._phone_hint,
+                 bg=CARD, fg=DIMTXT, font=(FONT, 8), wraplength=470,
+                 justify="left").pack(anchor="w", padx=14, pady=(0, 6))
         tk.Label(self._card,
-                 text="Open this URL in Safari on your iPhone  ·  same WiFi as PC",
+                 text=f"LAN: http://{_local_ip()}:{PORT}/demo.html  "
+                      f"(PC demo only — phone camera will not start on http)",
                  bg=CARD, fg=DIMTXT, font=(FONT, 8)).pack(anchor="w",
                  padx=14, pady=(0, 10))
         self._card_end()
+
+    # ── tunnel callbacks ─────────────────────────────────────────────────────
+    def set_tunnel_url(self, url):
+        self._phone_url.set(f"{url}/index.html")
+        self._phone_hint.set("Open this in Safari / Chrome on your phone. "
+                             "Allow camera when asked.")
+
+    def set_tunnel_error(self, msg):
+        self._phone_url.set("No HTTPS URL available")
+        self._phone_hint.set(f"{msg} — the phone camera cannot start without one.")
 
         # ── Status card ───────────────────────────────────────────────────────
         self._card_start("STATUS")
@@ -306,6 +322,15 @@ if __name__ == "__main__":
     threading.Thread(target=_server_thread, daemon=True).start()
 
     app = SimTrackApp()
+
+    # The LAN URL cannot start a phone camera (browsers require a secure
+    # origin), so the tunnel is the only usable phone address today.
+    tunnel = Tunnel(
+        PORT,
+        on_url=lambda u: app.after(0, lambda: app.set_tunnel_url(u)),
+        on_error=lambda m: app.after(0, lambda: app.set_tunnel_error(m)),
+    )
+    tunnel.start()
 
     def _cb(yaw, pitch, roll, n):
         app.after(0, lambda: app.update_data(yaw, pitch, roll, n))
