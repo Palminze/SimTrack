@@ -67,18 +67,29 @@ If a FreeTrack game stays static, the missing piece is `FreeTrackClient.dll`
 plus its registry path (`tools/ft_check.py register <dir>`) — most FreeTrack
 games load that DLL rather than reading shared memory directly.
 
-### OpenTrack port is not always 4242
+### VERIFIED 2026-09-08: UDP → OpenTrack works
 
-On this user's machine OpenTrack listens on **4376**. SimTrack hardcoded 4242,
-and the mismatch is silent — SimTrack keeps sending, OpenTrack keeps not
-listening, nothing reports why. Now configurable via `config.json`:
+`python tools\ft_check.py udp` moves OpenTrack's octopus preview. SimTrack's
+UDP packet format (six little-endian doubles, x/y/z/yaw/pitch/roll, degrees)
+is correct and OpenTrack receives it. **Port is 4242** — the default was right.
 
-```json
-{"opentrack_port": 4376}
-```
+Getting there cost most of a session, for reasons worth not repeating:
 
-The GUI shows the active port so a mismatch is visible. When diagnosing "no
-tracking in game", check this before anything else:
+- OpenTrack was not binding its port at all until it was relaunched. It showed
+  a normal window and an apparently-pressed Start the whole time.
+- A `4376` read off an OpenTrack dialog was a red herring (output side, not
+  input). Do not trust the dialogs — ask the OS what is actually bound:
+  `$p = (Get-Process opentrack).Id; netstat -ano -p UDP | Select-String " $p$"`
+- An earlier probe reported "nothing listening" against a bound socket because
+  it bound loopback instead of the wildcard. Fixed, but it wasted a cycle.
+
+**Do not create a config.json with opentrack_port 4376** — 4242 is correct here.
+The setting exists because the port genuinely varies between installs, not
+because this machine needs it.
+
+### Diagnosing "no tracking in game"
+
+Check in this order:
 
 ```powershell
 netstat -ano | findstr <port>
