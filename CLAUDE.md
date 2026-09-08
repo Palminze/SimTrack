@@ -67,6 +67,24 @@ If a FreeTrack game stays static, the missing piece is `FreeTrackClient.dll`
 plus its registry path (`tools/ft_check.py register <dir>`) — most FreeTrack
 games load that DLL rather than reading shared memory directly.
 
+### OpenTrack port is not always 4242
+
+On this user's machine OpenTrack listens on **4376**. SimTrack hardcoded 4242,
+and the mismatch is silent — SimTrack keeps sending, OpenTrack keeps not
+listening, nothing reports why. Now configurable via `config.json`:
+
+```json
+{"opentrack_port": 4376}
+```
+
+The GUI shows the active port so a mismatch is visible. When diagnosing "no
+tracking in game", check this before anything else:
+
+```powershell
+netstat -ano | findstr <port>
+python tools\ft_check.py probe --port <port>
+```
+
 ### Open items
 
 1. **`FreeTrackClient.dll`** — not yet shipped. Blocks games that use the DLL path.

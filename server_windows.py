@@ -30,9 +30,37 @@ except ImportError:
     import aiohttp
     from aiohttp import web
 
-PORT           = 8080
-OPENTRACK_IP   = "127.0.0.1"
-OPENTRACK_PORT = 4242
+# ── Settings ──────────────────────────────────────────────────────────────────
+# OpenTrack's UDP port is not always 4242 -- it varies by install, and a
+# mismatch is silent: SimTrack keeps sending, OpenTrack keeps not listening,
+# and nothing indicates why. Override it in config.json next to this file:
+#     {"opentrack_port": 4376}
+DEFAULTS = {
+    "port": 8080,
+    "opentrack_ip": "127.0.0.1",
+    "opentrack_port": 4242,
+}
+
+
+def _load_config():
+    cfg = dict(DEFAULTS)
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            user = json.load(fh)
+        cfg.update({k: v for k, v in user.items() if k in DEFAULTS})
+        print(f"[config] loaded {path}")
+    except FileNotFoundError:
+        pass
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"[config] ignoring {path}: {exc}")
+    return cfg
+
+
+CONFIG         = _load_config()
+PORT           = CONFIG["port"]
+OPENTRACK_IP   = CONFIG["opentrack_ip"]
+OPENTRACK_PORT = CONFIG["opentrack_port"]
 
 udp_sock  = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 clients   = set()
@@ -224,9 +252,15 @@ class SimTrackApp(tk.Tk):
                      font=(FONT, 8)).pack(side="left")
 
         tk.Label(self._card,
-                 text="For iRacing/ACC: install OpenTrack, set input = UDP port 4242",
+                 text=f"OpenTrack users: set Input = UDP over network, port "
+                      f"{OPENTRACK_PORT}.",
+                 bg=CARD, fg=WHITE, font=(FONT, 8)).pack(
+            anchor="w", padx=14, pady=(8, 0))
+        tk.Label(self._card,
+                 text="Port must match OpenTrack exactly — change it in "
+                      "config.json if yours differs.",
                  bg=CARD, fg=DIMTXT, font=(FONT, 8)).pack(
-            anchor="w", padx=14, pady=(8, 10))
+            anchor="w", padx=14, pady=(0, 10))
         self._card_end()
 
         self.geometry("540x540")
