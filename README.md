@@ -39,8 +39,8 @@ It uses [MediaPipe](https://developers.google.com/mediapipe) running entirely in
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Your PC  (server_windows.py)                               │
-│  ├─ FreeTrack shared memory  → Assetto Corsa, ETS2, BeamNG  │
-│  └─ UDP port 4242            → OpenTrack → iRacing, ACC     │
+│  ├─ FreeTrack shared memory  → ETS2, ATS, BeamNG            │
+│  └─ UDP port 4242 → OpenTrack → Assetto Corsa, ACC, iRacing │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -53,12 +53,12 @@ It uses [MediaPipe](https://developers.google.com/mediapipe) running entirely in
 
 ## Game Compatibility
 
-| Game | Protocol | Works out of the box |
+| Game | Protocol | Setup |
 |---|---|---|
-| Assetto Corsa | FreeTrack | ✅ Yes |
-| Euro Truck Simulator 2 | FreeTrack | ✅ Yes |
-| American Truck Simulator | FreeTrack | ✅ Yes |
-| BeamNG.drive | FreeTrack | ✅ Yes |
+| Assetto Corsa | TrackIR | ⚙️ Needs OpenTrack |
+| Euro Truck Simulator 2 | FreeTrack | ✅ Direct |
+| American Truck Simulator | FreeTrack | ✅ Direct |
+| BeamNG.drive | FreeTrack | ✅ Direct |
 | iRacing | TrackIR / UDP | ⚙️ Needs OpenTrack |
 | Assetto Corsa Competizione | TrackIR / UDP | ⚙️ Needs OpenTrack |
 | Dirt Rally 2.0 | TrackIR / UDP | ⚙️ Needs OpenTrack |
@@ -103,7 +103,10 @@ Open the URL shown in the SimTrack window in **Safari (iPhone)** or **Chrome (An
 
 ### 5. Enable in game
 
-**Assetto Corsa:** Options → General → Activate head tracking → FreeTrack
+**Assetto Corsa:** AC reads TrackIR, not FreeTrack, and has no in-game head
+tracking toggle. Install [OpenTrack](https://github.com/opentrack/opentrack/releases),
+set Input to **UDP over network** port **4242**, set Output to **freetrack 2.0
+enhanced**, and press Start. AC then picks it up automatically.
 
 **ETS2 / ATS:** Options → Controls → Head Tracking → FreeTrack → Enable
 
@@ -141,9 +144,11 @@ Open `http://localhost:8080/demo.html` in your browser for a visual cockpit demo
 
 iOS Safari requires HTTPS for camera access. If your iPhone can't reach the PC URL:
 
-### Option A — Same WiFi (recommended)
+### Option A — Same WiFi
 
-If your iPhone and PC are on the same WiFi network, use the local IP shown in the SimTrack window. iOS allows camera over local network HTTP.
+**Does not work for the camera.** Browsers only expose `getUserMedia` on secure
+origins, so `http://192.168.x.x:8080` cannot start the camera no matter what
+permissions you grant. The page loads; the camera does not. Use Option B.
 
 ### Option B — Cloudflare Tunnel
 

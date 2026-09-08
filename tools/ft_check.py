@@ -2,18 +2,26 @@
 """
 FreeTrack diagnostics. Run on the Windows gaming PC.
 
-  python tools/ft_check.py emit     sweep the head slowly side to side, so you can
-                                    confirm the game reacts with no phone involved
+  python tools/ft_check.py emit     sweep into FreeTrack shared memory
+                                    (ETS2, ATS, BeamNG)
+  python tools/ft_check.py udp      sweep to opentrack over UDP 4242
+                                    (Assetto Corsa, ACC, iRacing, Dirt)
   python tools/ft_check.py watch    decode whatever SimTrack is writing right now
 
-'emit' is the fast way to prove the game link: start it, launch Assetto Corsa
-with FreeTrack head tracking enabled, and the in-game view should pan.
-If it does, the game side works and any remaining problem is phone-to-PC.
+Both sweep a synthetic head so the game link can be proven with no phone
+involved. If the in-game view pans, the game side works and anything still
+broken is phone-to-PC.
+
+Pick by game: Assetto Corsa has no FreeTrack option -- it reads TrackIR, so it
+needs the 'udp' route through opentrack. ETS2, ATS and BeamNG read FreeTrack
+shared memory directly, so they take 'emit'.
 """
 
 import argparse
 import math
 import os
+import socket
+import struct
 import sys
 import time
 
@@ -36,6 +44,32 @@ def emit(args):
             pitch = 10.0 * math.sin(t * 0.35)
             ft.write(yaw, pitch, 0.0)
             sys.stdout.write(f"\r  yaw {yaw:+6.1f}  pitch {pitch:+6.1f}  frame {ft.frame}   ")
+            sys.stdout.flush()
+            time.sleep(1 / 60)
+    except KeyboardInterrupt:
+        print("\nstopped.")
+    return 0
+
+
+def udp(args):
+    """Sweep over UDP to opentrack. Covers Assetto Corsa, ACC, iRacing, Dirt.
+
+    Opentrack's 'UDP over network' input expects six little-endian doubles:
+    x, y, z, yaw, pitch, roll. Translations in cm, angles in degrees.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    dest = (args.host, args.port)
+    print(f"[ok] Sending sweep to opentrack at {args.host}:{args.port}.")
+    print("     In opentrack set Input = 'UDP over network', then press Start.")
+    print("     Ctrl+C to stop.\n")
+    t0 = time.time()
+    try:
+        while True:
+            t = time.time() - t0
+            yaw = 25.0 * math.sin(t * 0.6)
+            pitch = 10.0 * math.sin(t * 0.35)
+            sock.sendto(struct.pack("<6d", 0.0, 0.0, 0.0, yaw, pitch, 0.0), dest)
+            sys.stdout.write(f"\r  yaw {yaw:+6.1f}  pitch {pitch:+6.1f}   ")
             sys.stdout.flush()
             time.sleep(1 / 60)
     except KeyboardInterrupt:
@@ -81,6 +115,10 @@ p = argparse.ArgumentParser(description=__doc__,
 sub = p.add_subparsers(dest="cmd", required=True)
 sub.add_parser("emit", help="write a test sweep into shared memory").set_defaults(fn=emit)
 sub.add_parser("watch", help="decode the current shared memory").set_defaults(fn=watch)
+u = sub.add_parser("udp", help="send a test sweep to opentrack over UDP")
+u.add_argument("--host", default="127.0.0.1")
+u.add_argument("--port", type=int, default=4242)
+u.set_defaults(fn=udp)
 r = sub.add_parser("register", help="set the FreeTrackClient.dll registry path")
 r.add_argument("dir", help="directory containing FreeTrackClient.dll")
 r.set_defaults(fn=register)

@@ -38,20 +38,34 @@ Fixed in `freetrack.py`. Server-thread exceptions were also being swallowed —
 `server_windows.py` now catches them and the GUI polls health, so a dead server
 no longer looks like "waiting for phone…".
 
-### NEXT STEP — run this on Windows
+### Game routing — corrected 2026-09-08
+
+**Assetto Corsa has no FreeTrack option.** It reads TrackIR and detects it
+automatically. The README previously claimed "FreeTrack, works out of the box"
+for AC; that was false and is now fixed. AC must go through OpenTrack:
+Input = UDP over network 4242, Output = freetrack 2.0 enhanced.
+
+FreeTrack shared memory is the direct path only for **ETS2, ATS, BeamNG**.
+
+Supporting AC without OpenTrack would mean emulating TrackIR via `NPClient.dll`
+and NaturalPoint's proprietary handshake — real legal exposure for a commercial
+product. **Do not go down that road.** Route through OpenTrack, which is what
+SmoothTrack does.
+
+### NEXT STEP — run on Windows
 
 ```powershell
-python tools\ft_check.py emit
+python tools\ft_check.py udp      # Assetto Corsa, via OpenTrack
+python tools\ft_check.py emit     # ETS2 / ATS / BeamNG, direct
 ```
 
-Drives a synthetic ±25° sweep into shared memory. Launch Assetto Corsa with
-FreeTrack head tracking enabled. **No phone needed** — this isolates the game
-link from the phone link.
+Both drive a synthetic ±25° sweep, so the game link is provable with **no phone
+involved**. `emit` is confirmed working on the Windows PC — shared memory maps
+and frames count up. Whether a game reacts is still unverified.
 
-- View pans on its own → game side works, remaining problems are phone-side.
-- View static → need to ship `FreeTrackClient.dll` + set its registry path
-  (`tools/ft_check.py register <dir>`). Most FreeTrack games load that DLL
-  rather than reading shared memory directly.
+If a FreeTrack game stays static, the missing piece is `FreeTrackClient.dll`
+plus its registry path (`tools/ft_check.py register <dir>`) — most FreeTrack
+games load that DLL rather than reading shared memory directly.
 
 ### Open items
 
