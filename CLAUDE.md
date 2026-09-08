@@ -67,6 +67,22 @@ If a FreeTrack game stays static, the missing piece is `FreeTrackClient.dll`
 plus its registry path (`tools/ft_check.py register <dir>`) — most FreeTrack
 games load that DLL rather than reading shared memory directly.
 
+### VERIFIED 2026-09-08: game side works end to end
+
+**Assetto Corsa reads the data.** SimTrack → UDP → OpenTrack → AC is proven
+with synthetic input. The game half of the product is done; every remaining
+problem is on the phone side.
+
+Next cheap win before building certificate infrastructure: run the **whole**
+chain with the existing cloudflared tunnel to confirm a real head drives the
+game. That surfaces pose quality, jitter and axis directions — none of which
+can be learned from a synthetic sweep — and it needs no new infrastructure.
+Only then is the wildcard-cert work worth starting.
+
+Expect two immediate findings from that test: raw MediaPipe output is jittery
+(no smoothing exists yet, open item 4) and axis directions may be inverted
+(flags are in `freetrack.py`; the UDP path in `server_windows.py` has none yet).
+
 ### VERIFIED 2026-09-08: UDP → OpenTrack works
 
 `python tools\ft_check.py udp` moves OpenTrack's octopus preview. SimTrack's
