@@ -77,6 +77,54 @@ def udp(args):
     return 0
 
 
+def probe(args):
+    """Answer 'is anything actually listening on this port?' without guesswork.
+
+    A UDP bind to a port another process already holds fails on Windows. So a
+    failed bind means opentrack is listening there (good), and a successful
+    bind means nothing is -- opentrack is on a different port.
+    """
+    print(f"Probing UDP {args.host}:{args.port}\n")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    listening = False
+    try:
+        sock.bind((args.host, args.port))
+        sock.close()
+        print(f"  [!] Nothing is listening on {args.port}.")
+        print("      This port is free, so opentrack is NOT receiving here.")
+        print("      Open opentrack, click the wrench next to Input, and read")
+        print("      the port it uses -- then re-run with --port <that number>.")
+    except OSError as exc:
+        listening = True
+        print(f"  [ok] Port {args.port} is held by another process ({exc.errno}).")
+        print("       That is opentrack listening. Port is correct.")
+
+    print("\n  Sending 60 test packets...")
+    out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sent = 0
+    for i in range(60):
+        yaw = 25.0 * math.sin(i / 10.0)
+        try:
+            out.sendto(struct.pack("<6d", 0.0, 0.0, 0.0, yaw, 0.0, 0.0),
+                       (args.host, args.port))
+            sent += 1
+        except OSError as exc:
+            print(f"  [!] send failed: {exc}")
+            break
+        time.sleep(1 / 60)
+    out.close()
+    print(f"  [ok] {sent}/60 packets sent, 48 bytes each.\n")
+
+    if listening:
+        print("  Verdict: packets are reaching opentrack's port. If the octopus")
+        print("  still did not move, the mismatch is inside opentrack -- check")
+        print("  Input is 'UDP over network' (not a camera tracker) and that")
+        print("  the Start button is engaged.")
+    else:
+        print("  Verdict: wrong port. Nothing was there to receive them.")
+    return 0
+
+
 def watch(args):
     ft = FreeTrack()
     if not ft.active:
@@ -119,6 +167,10 @@ u = sub.add_parser("udp", help="send a test sweep to opentrack over UDP")
 u.add_argument("--host", default="127.0.0.1")
 u.add_argument("--port", type=int, default=4242)
 u.set_defaults(fn=udp)
+pr = sub.add_parser("probe", help="check whether anything is listening on the UDP port")
+pr.add_argument("--host", default="127.0.0.1")
+pr.add_argument("--port", type=int, default=4242)
+pr.set_defaults(fn=probe)
 r = sub.add_parser("register", help="set the FreeTrackClient.dll registry path")
 r.add_argument("dir", help="directory containing FreeTrackClient.dll")
 r.set_defaults(fn=register)
