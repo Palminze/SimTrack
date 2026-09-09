@@ -34,6 +34,9 @@ def emit(args):
     if not ft.active:
         print(f"[!] FreeTrack inactive: {ft.error}")
         return 1
+    csv = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "dll", "games.csv")
+    ft.start_game_watch(csv, on_game=lambda n: print(f"\n[game] {n} connected\n"))
     print("[ok] FT_SharedMem mapped. Sweeping +/-25 deg yaw, +/-10 deg pitch.")
     print("     Launch the game now. Ctrl+C to stop.\n")
     t0 = time.time()
