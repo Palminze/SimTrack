@@ -81,6 +81,14 @@ else:
 
 
 # ── WebSocket handler ─────────────────────────────────────────────────────────
+def _angle(v):
+    """Reject non-finite pose values and clamp to a physical head range."""
+    v = float(v)
+    if v != v or v in (float("inf"), float("-inf")):
+        raise ValueError("non-finite angle")
+    return max(-180.0, min(180.0, v))
+
+
 async def ws_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
@@ -91,10 +99,10 @@ async def ws_handler(request):
             if msg.type == aiohttp.WSMsgType.TEXT:
                 try:
                     d     = json.loads(msg.data)
-                    yaw   = float(d["yaw"])
-                    pitch = float(d["pitch"])
-                    roll  = float(d["roll"])
-                except (KeyError, ValueError, json.JSONDecodeError):
+                    yaw   = _angle(d["yaw"])
+                    pitch = _angle(d["pitch"])
+                    roll  = _angle(d["roll"])
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                     continue
 
                 freetrack.write(yaw, pitch, roll)
@@ -125,12 +133,31 @@ async def ws_handler(request):
     return ws
 
 
-async def _run_server():
+# Only the phone page and the demo are public. The tunnel puts this server on
+# the open internet, so serving the whole directory (add_static on the repo
+# root) would hand out .git, keys and the entire source tree to anyone with
+# the URL.
+PUBLIC_FILES = {"index.html", "demo.html"}
+
+
+def build_app():
     static_dir = os.path.dirname(os.path.abspath(__file__))
+
+    def page(name):
+        async def handler(request):
+            return web.FileResponse(os.path.join(static_dir, name))
+        return handler
+
     app = web.Application()
     app.router.add_get("/ws", ws_handler)
-    app.router.add_static("/", static_dir, show_index=True)
-    runner = web.AppRunner(app)
+    app.router.add_get("/", page("index.html"))
+    for name in PUBLIC_FILES:
+        app.router.add_get(f"/{name}", page(name))
+    return app
+
+
+async def _run_server():
+    runner = web.AppRunner(build_app())
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
     await asyncio.Future()
