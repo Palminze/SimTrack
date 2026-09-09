@@ -33,6 +33,8 @@ from __future__ import annotations
 import math
 import struct
 import sys
+import threading
+import time
 
 FT_DATA   = struct.Struct("<3i20f")        # 92 bytes
 FT_HEAP   = struct.Struct("<3i20f i 8s i")  # 108 bytes
@@ -64,6 +66,7 @@ class FreeTrack:
         self._mutex = None
         self._buf = bytearray(FT_HEAP.size)   # test fallback
         self.mm = None
+        self.current_game: str | None = None
 
         if sys.platform != "win32":
             self.error = "not on Windows -- shared memory disabled"
@@ -104,9 +107,12 @@ class FreeTrack:
 
     def write(self, yaw_deg: float, pitch_deg: float, roll_deg: float,
               x_mm: float = 0.0, y_mm: float = 0.0, z_mm: float = 0.0) -> None:
-        frame = self.pack(yaw_deg, pitch_deg, roll_deg, x_mm, y_mm, z_mm)
+        # Write ONLY the FTData block (first 92 bytes). The heap tail past it
+        # (GameID/table/GameID2) belongs to the game handshake -- writing the
+        # full frame here would zero the game's announcement on every pose.
+        frame = self.pack(yaw_deg, pitch_deg, roll_deg, x_mm, y_mm, z_mm)[:FT_DATA.size]
         if not self.active:
-            self._buf[:] = frame
+            self._buf[:FT_DATA.size] = frame
             return
 
         if self._mutex:
@@ -119,6 +125,49 @@ class FreeTrack:
             if self._mutex:
                 import ctypes
                 ctypes.windll.kernel32.ReleaseMutex(self._mutex)
+
+    # ── game handshake ──────────────────────────────────────────────────────
+    # A TrackIR/FreeTrack game announces itself by writing its ID into the
+    # heap; the tracker answers with the game's scramble table and echoes the
+    # ID into GameID2. Until that answer arrives, NPClient reports no data.
+    def _read_tail(self) -> "tuple[int, bytes, int]":
+        if self.active:
+            self.mm.seek(_GAMEID_OFF)
+            raw = self.mm.read(_TAIL.size)
+        else:
+            raw = bytes(self._buf[_GAMEID_OFF:_GAMEID_OFF + _TAIL.size])
+        gid, table, gid2 = _TAIL.unpack(raw)
+        return gid, table, gid2
+
+    def _write_tail(self, gid: int, table: bytes, gid2: int) -> None:
+        raw = _TAIL.pack(gid, table, gid2)
+        if self.active:
+            self.mm.seek(_GAMEID_OFF)
+            self.mm.write(raw)
+        else:
+            self._buf[_GAMEID_OFF:_GAMEID_OFF + _TAIL.size] = raw
+
+    def poll_game(self, csv_path: str) -> "str | None":
+        """One handshake step; returns the game name when a new game appears."""
+        gid, _table, gid2 = self._read_tail()
+        if gid == 0 or gid == gid2:
+            return None
+        name, table = lookup_game(csv_path, gid)
+        self._write_tail(gid, table, gid)
+        self.current_game = name
+        return name
+
+    def start_game_watch(self, csv_path: str, on_game=None) -> None:
+        def run():
+            while True:
+                try:
+                    name = self.poll_game(csv_path)
+                    if name and on_game:
+                        on_game(name)
+                except Exception:                     # noqa: BLE001
+                    pass
+                time.sleep(0.5)
+        threading.Thread(target=run, daemon=True).start()
 
     # ── introspection ───────────────────────────────────────────────────────
     def read_back(self) -> dict:
@@ -142,6 +191,35 @@ def decode(raw: bytes) -> dict:
     }
 
 
+# Offsets of the handshake tail inside FTHeap: GameID right after FTData,
+# then the 8-byte scramble table, then GameID2 (the tracker's acknowledgement).
+_GAMEID_OFF = FT_DATA.size          # 92
+_TAIL       = struct.Struct("<i8si")
+
+
+def lookup_game(csv_path: str, game_id: int):
+    """Map a game's reported ID to (name, 8-byte table) via games.csv.
+
+    Games listed as protocol version V160 (and any row without a full 22-hex
+    FTN id) use a zero table -- their data is not scrambled. Unknown IDs get
+    a zero table too, which works for every unscrambled title.
+    """
+    zero = bytes(8)
+    want = str(game_id)
+    try:
+        with open(csv_path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                cols = line.rstrip("\n\r").split(";")
+                if len(cols) == 8 and cols[6].strip() == want:
+                    name, since, ftn = cols[1], cols[3].strip(), cols[7].strip()
+                    if since != "V160" and len(ftn) == 22:
+                        return name, bytes.fromhex(ftn)[:8]
+                    return name, zero
+    except OSError:
+        pass
+    return f"game id {game_id}", zero
+
+
 def register_client_dll(dll_dir: str) -> str | None:
     """Point FreeTrack-aware games at FreeTrackClient.dll.
 
@@ -157,6 +235,27 @@ def register_client_dll(dll_dir: str) -> str | None:
         key = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
                                  r"Software\FreeTrack\FreeTrackClient", 0,
                                  winreg.KEY_SET_VALUE)
+        with key:
+            winreg.SetValueEx(key, "Path", 0, winreg.REG_SZ, dll_dir)
+        return None
+    except Exception as exc:                          # noqa: BLE001
+        return str(exc)
+
+
+def register_npclient(dll_dir: str) -> str | None:
+    """Point TrackIR games at NPClient.dll / NPClient64.dll.
+
+    TrackIR titles (Assetto Corsa, iRacing, ...) find the client DLL through
+    this key; with it set they load SimTrack's NPClient directly -- no
+    TrackIR software, no opentrack process.
+    """
+    if sys.platform != "win32":
+        return "not on Windows"
+    try:
+        import winreg
+        key = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
+                                 r"Software\NaturalPoint\NATURALPOINT\NPClient Location",
+                                 0, winreg.KEY_SET_VALUE)
         with key:
             winreg.SetValueEx(key, "Path", 0, winreg.REG_SZ, dll_dir)
         return None

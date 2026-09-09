@@ -70,12 +70,32 @@ _ui_cb    = None   # set after GUI is created
 # ── FreeTrack shared memory ───────────────────────────────────────────────────
 # The byte layout lives in freetrack.py -- it must match the FreeTrack 2.0
 # public interface exactly. Verify with: python tools/ft_check.py emit
-from freetrack import FreeTrack
+from freetrack import (FreeTrack, register_client_dll, register_npclient)
 from tunnel import Tunnel
+
+_BASE     = os.path.dirname(os.path.abspath(__file__))
+DLL_DIR   = os.path.join(_BASE, "bin")
+GAMES_CSV = os.path.join(_BASE, "dll", "games.csv")
 
 freetrack = FreeTrack()
 if freetrack.active:
     print("[FreeTrack] Shared memory open — AC / ETS2 / BeamNG ready")
+
+    # Games find SimTrack's client DLLs through these registry paths --
+    # TrackIR titles via NPClient, FreeTrack titles via FreeTrackClient.
+    # With both set, no opentrack or TrackIR software is involved.
+    for label, err in (("FreeTrack DLL", register_client_dll(DLL_DIR)),
+                       ("TrackIR DLL", register_npclient(DLL_DIR))):
+        print(f"[{label}] {'registered: ' + DLL_DIR if err is None else 'NOT registered: ' + err}")
+
+    _missing = [n for n in ("NPClient.dll", "NPClient64.dll",
+                            "freetrackclient.dll", "freetrackclient64.dll")
+                if not os.path.exists(os.path.join(DLL_DIR, n))]
+    if _missing:
+        print(f"[warn] missing from bin/: {', '.join(_missing)} — "
+              f"games cannot connect until they exist (CI builds them; git pull)")
+
+    freetrack.start_game_watch(GAMES_CSV)
 else:
     print(f"[FreeTrack] Inactive: {freetrack.error}")
 
@@ -318,6 +338,9 @@ class SimTrackApp(tk.Tk):
             # Only warn while idle -- never stomp on a live tracking readout.
             self._led.config(fg=AMBER)
             self._status.set(f"No game output — {freetrack.error}")
+        elif freetrack.current_game and not clients:
+            self._led.config(fg=AMBER)
+            self._status.set(f"{freetrack.current_game} connected — waiting for phone…")
         self.after(1000, self._health)
 
     def _card_start(self, label):

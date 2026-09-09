@@ -1,0 +1,43 @@
+name: build-dlls
+
+on:
+  push:
+    paths:
+      - "dll/**"
+      - ".github/workflows/build-dlls.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mingw cross-compilers
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64
+
+      - name: Build game client DLLs
+        run: |
+          mkdir -p bin
+          # --kill-at strips stdcall @N decorations so games find the plain names
+          i686-w64-mingw32-gcc   -O2 -shared -Wl,--kill-at -o bin/NPClient.dll          dll/npclient.c
+          x86_64-w64-mingw32-gcc -O2 -shared               -o bin/NPClient64.dll        dll/npclient.c
+          i686-w64-mingw32-gcc   -O2 -shared -Wl,--kill-at -o bin/freetrackclient.dll   dll/freetrackclient.c
+          x86_64-w64-mingw32-gcc -O2 -shared               -o bin/freetrackclient64.dll dll/freetrackclient.c
+          ls -l bin/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simtrack-dlls
+          path: bin/*.dll
+
+      - name: Commit DLLs back to the repo
+        run: |
+          git config user.name  "simtrack-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -f bin/*.dll
+          git diff --cached --quiet || git commit -m "CI: build game client DLLs [skip ci]"
+          git push

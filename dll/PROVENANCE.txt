@@ -1,0 +1,26 @@
+Provenance of files in this directory
+=====================================
+
+npclient.c, NPCLIENT-CREDIT.txt
+  Taken verbatim from the opentrack repository (contrib/npclient), which
+  credits it to the linuxtrack project ("uglyDwarf", linux-track). Per the
+  accompanying credit file it is a clean-room implementation distributed
+  permissively. It implements the NPClient (TrackIR) client interface by
+  reading the FreeTrack 2.0 shared-memory block. Do not confuse permission
+  from its authors with permission from NaturalPoint: emulating the TrackIR
+  interface is an interoperability decision SimTrack's owner has made
+  knowingly.
+
+games.csv
+  "facetracknoir supported games.csv" from the opentrack repository
+  (settings/). FaceTrackNoIR heritage; Wim Vriend granted ISC-style terms
+  for FaceTrackNoIR-derived material in opentrack (see opentrack's
+  3rdparty-notices/FACETRACKNOIR-COPYING.txt). Maps a game's reported ID to
+  its name and, for titles that scramble their data, the 8-byte table.
+
+freetrackclient.c
+  Written for SimTrack. Not copied from opentrack's freetrackclient.c,
+  which is translated from FreeTrack's GPL Delphi sources; this file
+  implements the same publicly documented interface (FTGetData,
+  FTReportName, FTReportID, FTGetDllVersion, FTProvider) against the
+  FreeTrack 2.0 shared-memory layout that SimTrack's freetrack.py writes.

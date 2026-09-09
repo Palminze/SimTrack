@@ -47,10 +47,29 @@ Input = UDP over network 4242, Output = freetrack 2.0 enhanced.
 
 FreeTrack shared memory is the direct path only for **ETS2, ATS, BeamNG**.
 
-Supporting AC without OpenTrack would mean emulating TrackIR via `NPClient.dll`
-and NaturalPoint's proprietary handshake — real legal exposure for a commercial
-product. **Do not go down that road.** Route through OpenTrack, which is what
-SmoothTrack does.
+SUPERSEDED 2026-09-09: the owner decided OpenTrack must go — customers touch
+only SimTrack. Architecture now: SimTrack writes FT_SharedMem (as before), and
+two client DLLs serve the games from it directly:
+
+- `bin/NPClient.dll` + `NPClient64.dll` → TrackIR titles (AC, iRacing, ACC).
+  Source `dll/npclient.c`, vendored from opentrack contrib — linuxtrack's
+  clean-room, permissively licensed implementation (see dll/PROVENANCE.txt).
+- `bin/freetrackclient.dll` (+64) → FreeTrack titles (ETS2, ATS, BeamNG).
+  Source `dll/freetrackclient.c`, written fresh for SimTrack — opentrack's
+  version descends from FreeTrack's GPL Delphi code, so it was NOT copied.
+
+Registry keys (set automatically at server start, `freetrack.py`):
+HKCU\Software\FreeTrack\FreeTrackClient\Path and
+HKCU\Software\NaturalPoint\NATURALPOINT\NPClient Location → both point at bin/.
+
+GameID handshake: games write their ID into the heap; `poll_game()` answers
+with the scramble table from `dll/games.csv` and echoes GameID2. Pose writes
+deliberately stop at byte 92 so they never clobber this tail.
+
+DLLs are cross-compiled by `.github/workflows/build-dlls.yml` (mingw, 32+64
+bit) and committed to `bin/` by CI — `git pull` after the workflow runs.
+NaturalPoint interface-emulation risk was flagged three times and accepted by
+the owner; it is inherent to the feature, not to whose code implements it.
 
 ### NEXT STEP — run on Windows
 
