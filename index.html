@@ -59,7 +59,10 @@
   /* ── camera strip ──────────────────────────────────────── */
   .cam {
     position: relative; border: 1px solid var(--edge); border-radius: 6px;
-    overflow: hidden; background: #000; height: 120px; flex: none;
+    overflow: hidden; background: #000;
+    /* Grows into whatever the phone has left: a bigger view of your own face
+       is what makes calibration easy to aim. */
+    flex: 1 1 auto; min-height: 130px;
   }
   .cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
   .cam .lock {
