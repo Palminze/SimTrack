@@ -52,6 +52,18 @@ async def main():
             async with s.get(base + path) as r:
                 check(f"GET {path} -> {want}", r.status == want, f"got {r.status}")
 
+        print("\nSelf-hosted MediaPipe assets")
+        for path, want_type in [("/assets/vision_bundle.mjs", "text/javascript"),
+                                ("/assets/wasm/vision_wasm_internal.wasm", "application/wasm"),
+                                ("/assets/face_landmarker.task", "application/octet-stream")]:
+            async with s.get(base + path) as r:
+                check(f"GET {path}", r.status == 200 and r.headers["Content-Type"] == want_type,
+                      f"{r.status} {r.headers.get('Content-Type')}")
+        for path in ["/assets/../server_windows.py", "/assets/%2e%2e/key.pem",
+                     "/assets/missing.wasm", "/assets/wasm/../../freetrack.py"]:
+            async with s.get(base + path) as r:
+                check(f"GET {path} -> 404", r.status == 404, f"got {r.status}")
+
         print("\nPipeline: phone -> WebSocket -> UDP")
         spectator = await s.ws_connect(base + "/ws")   # stands in for demo.html
         phone = await s.ws_connect(base + "/ws")

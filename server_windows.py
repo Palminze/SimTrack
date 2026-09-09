@@ -159,20 +159,43 @@ async def ws_handler(request):
 # the URL.
 PUBLIC_FILES = {"index.html", "demo.html"}
 
+# Self-hosted MediaPipe (assets/): correct MIME types matter -- browsers
+# refuse to stream-compile wasm served as text/plain, and ES module imports
+# need a javascript type. Don't trust the OS mimetypes table for these.
+ASSET_TYPES = {
+    ".mjs": "text/javascript",
+    ".js": "text/javascript",
+    ".wasm": "application/wasm",
+    ".task": "application/octet-stream",
+}
+
 
 def build_app():
     static_dir = os.path.dirname(os.path.abspath(__file__))
+    assets_dir = os.path.join(static_dir, "assets")
 
     def page(name):
         async def handler(request):
             return web.FileResponse(os.path.join(static_dir, name))
         return handler
 
+    async def asset(request):
+        rel = request.match_info["path"]
+        full = os.path.realpath(os.path.join(assets_dir, rel))
+        # realpath + prefix check kills .. traversal out of assets/
+        if not full.startswith(os.path.realpath(assets_dir) + os.sep):
+            raise web.HTTPNotFound()
+        ext = os.path.splitext(full)[1].lower()
+        if ext not in ASSET_TYPES or not os.path.isfile(full):
+            raise web.HTTPNotFound()
+        return web.FileResponse(full, headers={"Content-Type": ASSET_TYPES[ext]})
+
     app = web.Application()
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", page("index.html"))
     for name in PUBLIC_FILES:
         app.router.add_get(f"/{name}", page(name))
+    app.router.add_get("/assets/{path:.+}", asset)
     return app
 
 

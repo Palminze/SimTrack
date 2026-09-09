@@ -1,170 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SimTrack</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #0a0a0a;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      gap: 16px;
-    }
-    header { text-align: center; }
-    h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-    .subtitle { color: #666; font-size: 13px; margin-top: 2px; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0d0b">
+<title>SimTrack</title>
+<style>
+  /* Deliberately single-theme: this screen sits propped on a monitor next to
+     a sim rig, usually in a dark room. Everything painted explicitly. */
+  :root {
+    --ground: #0a0d0b;
+    --panel: #101511;
+    --panel-2: #151c16;
+    --edge: #212c23;
+    --ink: #d9e2da;
+    --dim: #6d7c70;
+    --green: #00d96c;
+    --green-dk: #0b3b22;
+    --amber: #f5a623;
+    --red: #ef4444;
+    --mono: ui-monospace, "SF Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 15px/1.45 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+    gap: 10px;
+    max-width: 520px; margin: 0 auto;
+  }
+  .label {
+    font-size: 10px; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--dim);
+  }
 
-    #video-wrap {
-      position: relative;
-      width: 100%;
-      max-width: 360px;
-      border-radius: 14px;
-      overflow: hidden;
-      background: #111;
-      aspect-ratio: 4/3;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
-    }
-    #face-dot {
-      position: absolute;
-      top: 10px; right: 10px;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #444;
-      transition: background 0.2s;
-    }
-    #face-dot.on { background: #00ff88; box-shadow: 0 0 6px #00ff8888; }
-    #loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: #111;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      font-size: 13px;
-      color: #888;
-    }
-    .spinner {
-      width: 28px; height: 28px;
-      border: 3px solid #333;
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+  /* ── header / status strip ─────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 6px;
+  }
+  .wordmark { font-weight: 700; letter-spacing: .06em; font-size: 15px; }
+  .wordmark b { color: var(--green); font-weight: 700; }
+  .leds { margin-left: auto; display: flex; gap: 14px; }
+  .led { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .led .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #2a352c; transition: background .2s, box-shadow .2s;
+  }
+  .led.on .dot { background: var(--green); box-shadow: 0 0 8px rgba(0,217,108,.7); }
+  .led.warn .dot { background: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,.6); }
+  .led.err .dot { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,.6); }
+  .fps { font-family: var(--mono); font-size: 12px; color: var(--dim); min-width: 3.5ch; text-align: right; }
 
-    .card {
-      background: #111;
-      border: 1px solid #1e1e1e;
-      border-radius: 14px;
-      padding: 16px;
-      width: 100%;
-      max-width: 360px;
-    }
-    .card-label {
-      font-size: 10px;
-      color: #555;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 10px;
-    }
+  /* ── camera strip ──────────────────────────────────────── */
+  .cam {
+    position: relative; border: 1px solid var(--edge); border-radius: 6px;
+    overflow: hidden; background: #000; height: 120px; flex: none;
+  }
+  .cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+  .cam .lock {
+    position: absolute; left: 8px; top: 8px;
+    font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 3px;
+    background: rgba(10,13,11,.75); color: var(--dim);
+    border: 1px solid var(--edge);
+  }
+  .cam .lock.on { color: var(--green); border-color: var(--green-dk); }
 
-    .status-row { display: flex; align-items: center; gap: 8px; }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #444;
-      flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .dot.connected { background: #00ff88; }
-    .dot.connecting { background: #f59e0b; }
-    .dot.error { background: #ef4444; }
-    #status-text { font-size: 14px; color: #aaa; }
+  /* ── telemetry ─────────────────────────────────────────── */
+  .telemetry { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cell {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 6px;
+    padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .cell .val {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 600; color: var(--green);
+    line-height: 1;
+  }
+  .cell .val small { font-size: 13px; color: var(--dim); font-weight: 400; }
+  .meter { height: 4px; background: var(--panel-2); border-radius: 2px; position: relative; overflow: hidden; }
+  .meter i {
+    position: absolute; top: 0; bottom: 0; left: 50%;
+    background: var(--green); border-radius: 2px;
+    width: 0; transform-origin: left center;
+  }
+  .meter .tick { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--edge); }
 
-    .values {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .vbox {
-      background: #1a1a1a;
-      border-radius: 9px;
-      padding: 10px 8px;
-      text-align: center;
-    }
-    .vbox .vlabel { font-size: 10px; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .vbox .vnum { font-size: 22px; font-weight: 700; color: #00ff88; font-variant-numeric: tabular-nums; }
+  /* ── controls ──────────────────────────────────────────── */
+  .controls { display: flex; flex-direction: column; gap: 10px; }
+  button#cal {
+    appearance: none; border: 1px solid var(--green-dk);
+    background: linear-gradient(180deg, #103023, #0b241a);
+    color: var(--green); border-radius: 6px;
+    font: 700 16px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+    letter-spacing: .12em; text-transform: uppercase;
+    padding: 16px; width: 100%;
+    cursor: pointer;
+  }
+  button#cal:active { background: #143d2b; }
+  button#cal:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  button#cal .sub { display: block; margin-top: 5px; font-weight: 400; font-size: 11px; letter-spacing: .05em; text-transform: none; color: var(--dim); }
+  .smooth {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 6px;
+    padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .smooth .row { display: flex; align-items: center; gap: 10px; }
+  .smooth .row .label { flex: none; }
+  .smooth output { font-family: var(--mono); font-size: 12px; color: var(--green); margin-left: auto; min-width: 4ch; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--green); height: 28px; margin: 0; }
+  input[type=range]:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
-    .tip { font-size: 12px; color: #444; text-align: center; }
-  </style>
+  .tip { font-size: 12px; color: var(--dim); text-align: center; margin: 0; }
+
+  /* ── loading / error overlay ───────────────────────────── */
+  #overlay {
+    position: fixed; inset: 0; background: var(--ground);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center; z-index: 10;
+  }
+  #overlay .spin {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 3px solid var(--green-dk); border-top-color: var(--green);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #overlay .spin { animation: none; } }
+  #overlay p { margin: 0; max-width: 34ch; color: var(--dim); }
+  #overlay p.err { color: var(--amber); }
+</style>
 </head>
 <body>
 
+<div id="overlay"><div class="spin"></div><p id="loading-text">Starting camera…</p></div>
+
 <header>
-  <h1>SimTrack</h1>
-  <p class="subtitle">Webcam head tracking for sim racing</p>
+  <span class="wordmark">SIM<b>TRACK</b></span>
+  <div class="leds">
+    <div class="led" id="led-link"><span class="dot"></span><span class="label">Link</span></div>
+    <div class="led" id="led-face"><span class="dot"></span><span class="label">Face</span></div>
+    <div class="led"><span class="fps" id="fps">--</span><span class="label">FPS</span></div>
+  </div>
 </header>
 
-<div id="video-wrap">
-  <video id="video" playsinline autoplay muted></video>
-  <div id="face-dot"></div>
-  <div id="loading-overlay">
-    <div class="spinner"></div>
-    <span id="loading-text">Starting camera...</span>
+<div class="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <span class="lock" id="lock">No face</span>
+</div>
+
+<div class="telemetry">
+  <div class="cell"><span class="label">Yaw</span><span class="val" id="v-yaw">+0.0<small>°</small></span>
+    <div class="meter"><span class="tick"></span><i id="m-yaw"></i></div></div>
+  <div class="cell"><span class="label">Pitch</span><span class="val" id="v-pitch">+0.0<small>°</small></span>
+    <div class="meter"><span class="tick"></span><i id="m-pitch"></i></div></div>
+  <div class="cell"><span class="label">Roll</span><span class="val" id="v-roll">+0.0<small>°</small></span>
+    <div class="meter"><span class="tick"></span><i id="m-roll"></i></div></div>
+</div>
+
+<div class="controls">
+  <button id="cal">Calibrate<span class="sub">Sit in your driving position, look straight ahead, tap</span></button>
+  <div class="smooth">
+    <div class="row"><span class="label">Smoothing</span><output id="sm-out">60</output></div>
+    <input type="range" id="sm" min="0" max="100" step="5" value="60" aria-label="Smoothing strength">
   </div>
 </div>
 
-<div class="card">
-  <div class="card-label">Status</div>
-  <div class="status-row">
-    <div class="dot" id="dot"></div>
-    <span id="status-text">Not connected</span>
-  </div>
-  <div class="values">
-    <div class="vbox"><div class="vlabel">Yaw</div><div class="vnum" id="v-yaw">0.0</div></div>
-    <div class="vbox"><div class="vlabel">Pitch</div><div class="vnum" id="v-pitch">0.0</div></div>
-    <div class="vbox"><div class="vlabel">Roll</div><div class="vnum" id="v-roll">0.0</div></div>
-  </div>
-</div>
-
-<p class="tip">Prop phone on monitor ledge facing you · auto-connects to PC</p>
+<p class="tip">Prop the phone on your monitor facing you · keep this screen open while racing</p>
 
 <script type="module">
-import { FaceLandmarker, FilesetResolver }
-  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import { FaceLandmarker, FilesetResolver } from "./assets/vision_bundle.mjs";
 
-const video       = document.getElementById('video');
-const faceDot     = document.getElementById('face-dot');
-const overlay     = document.getElementById('loading-overlay');
-const loadingText = document.getElementById('loading-text');
-const dot         = document.getElementById('dot');
-const statusText  = document.getElementById('status-text');
-const vYaw        = document.getElementById('v-yaw');
-const vPitch      = document.getElementById('v-pitch');
-const vRoll       = document.getElementById('v-roll');
+const $ = id => document.getElementById(id);
+const video = $('video'), overlay = $('overlay'), loadingText = $('loading-text');
 
-let landmarker = null;
-let ws         = null;
-let connected  = false;
-let lastTime   = -1;
+let landmarker = null, ws = null, connected = false, lastTime = -1;
 
-// ── Camera ────────────────────────────────────────────────────────────────────
+// ── One Euro filter — the standard for head tracking: still when you are
+//    still, instant when you move. Beta rewards fast motion with less lag. ──
+function lpAlpha(cutoff, dt) { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); }
+class LowPass {
+  constructor() { this.ok = false; this.v = 0; }
+  f(x, a) { this.v = this.ok ? a * x + (1 - a) * this.v : x; this.ok = true; return this.v; }
+}
+class OneEuro {
+  constructor(minCutoff, beta) { this.mc = minCutoff; this.beta = beta; this.x = new LowPass(); this.dx = new LowPass(); this.t = null; }
+  filter(x, t) {
+    if (this.t === null) { this.t = t; this.dx.f(0, 1); return this.x.f(x, 1); }
+    const dt = Math.max((t - this.t) / 1000, 1e-3); this.t = t;
+    const edx = this.dx.f((x - this.x.v) / dt, lpAlpha(1.0, dt));
+    return this.x.f(x, lpAlpha(this.mc + this.beta * Math.abs(edx), dt));
+  }
+}
+
+const filters = { yaw: null, pitch: null, roll: null };
+function makeFilters(strength) {
+  // 0 = raw. Otherwise minCutoff runs 4.5 (light) → 0.5 (heavy).
+  if (strength <= 0) { filters.yaw = filters.pitch = filters.roll = null; return; }
+  const mc = 4.5 - (strength / 100) * 4.0;
+  for (const k of ["yaw", "pitch", "roll"]) filters[k] = new OneEuro(mc, 0.05);
+}
+
+const smEl = $('sm'), smOut = $('sm-out');
+let smoothing = 60;
+try { const s = localStorage.getItem('simtrack-smoothing'); if (s !== null) smoothing = +s; } catch (e) {}
+smEl.value = smoothing; smOut.textContent = smoothing;
+makeFilters(smoothing);
+smEl.addEventListener('input', () => {
+  smoothing = +smEl.value; smOut.textContent = smoothing;
+  makeFilters(smoothing);
+  try { localStorage.setItem('simtrack-smoothing', String(smoothing)); } catch (e) {}
+});
+
+// ── Calibrate: current pose becomes the new straight-ahead ──
+const offset = { yaw: 0, pitch: 0, roll: 0 };
+let lastPose = { yaw: 0, pitch: 0, roll: 0 };
+$('cal').addEventListener('click', () => {
+  offset.yaw = lastPose.yaw + offset.yaw;
+  offset.pitch = lastPose.pitch + offset.pitch;
+  offset.roll = lastPose.roll + offset.roll;
+});
+
+// ── Camera ──
 async function startCamera() {
+  if (!navigator.mediaDevices?.getUserMedia)
+    throw Object.assign(new Error(
+      "Camera needs the secure link. Open the https:// address shown in the SimTrack window on your PC — the plain 192.168.x.x one cannot start a camera."), { friendly: true });
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
   });
@@ -172,101 +236,111 @@ async function startCamera() {
   await new Promise(r => video.onloadedmetadata = r);
 }
 
-// ── MediaPipe ─────────────────────────────────────────────────────────────────
+// ── Keep the screen awake — a sleeping phone stops tracking mid-race ──
+let wakeLock = null;
+async function keepAwake() {
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') keepAwake();
+});
+
+// ── MediaPipe, self-hosted from /assets ──
 async function loadLandmarker() {
   loadingText.textContent = 'Loading face tracker…';
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-  );
+  const vision = await FilesetResolver.forVisionTasks("./assets/wasm");
   landmarker = await FaceLandmarker.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      delegate: "GPU"
-    },
+    baseOptions: { modelAssetPath: "./assets/face_landmarker.task", delegate: "GPU" },
     outputFacialTransformationMatrixes: true,
     runningMode: "VIDEO",
     numFaces: 1
   });
 }
 
-// ── Head pose from 4×4 column-major rotation matrix ──────────────────────────
-// In camera space: Y-rotation = left/right turn, X-rotation = nod, Z-rotation = tilt
-// Camera is front-facing (mirror), so yaw and pitch are negated to match natural direction.
+// ── Head pose from the 4x4 column-major transform ──
 function matrixToEuler(m) {
   const toD = 180 / Math.PI;
-  const headTurn = Math.asin(-Math.max(-1, Math.min(1, m[2]))) * toD;  // Y rotation → yaw
-  const headNod  = Math.atan2(m[6], m[10]) * toD;                       // X rotation → pitch
-  const headTilt = Math.atan2(m[1], m[0])  * toD;                       // Z rotation → roll
-  return {
-    yaw:   -headTurn,   // negate: front camera mirrors left/right
-    pitch: -headNod,    // negate: nod up → show sky (scene shifts down)
-    roll:   headTilt
-  };
+  const headTurn = Math.asin(-Math.max(-1, Math.min(1, m[2]))) * toD;
+  const headNod = Math.atan2(m[6], m[10]) * toD;
+  const headTilt = Math.atan2(m[1], m[0]) * toD;
+  return { yaw: -headTurn, pitch: -headNod, roll: headTilt };
 }
 
-// ── Detection loop ────────────────────────────────────────────────────────────
+// ── UI ──
+const vEls = { yaw: $('v-yaw'), pitch: $('v-pitch'), roll: $('v-roll') };
+const mEls = { yaw: $('m-yaw'), pitch: $('m-pitch'), roll: $('m-roll') };
+const ledLink = $('led-link'), ledFace = $('led-face'), lock = $('lock'), fpsEl = $('fps');
+
+function paintAxis(k, v) {
+  vEls[k].innerHTML = (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '<small>°</small>';
+  const frac = Math.max(-1, Math.min(1, v / 45));           // full bar at ±45°
+  const el = mEls[k];
+  el.style.width = Math.abs(frac) * 50 + '%';
+  el.style.left = frac >= 0 ? '50%' : (50 - Math.abs(frac) * 50) + '%';
+}
+
+let frames = 0;
+setInterval(() => { fpsEl.textContent = frames || '--'; frames = 0; }, 1000);
+
+// ── Detection loop ──
 function loop() {
   requestAnimationFrame(loop);
-
   if (!landmarker || video.readyState < 2) return;
   if (video.currentTime === lastTime) return;
   lastTime = video.currentTime;
 
-  const result = landmarker.detectForVideo(video, performance.now());
+  const now = performance.now();
+  const result = landmarker.detectForVideo(video, now);
   const matrices = result.facialTransformationMatrixes;
+  frames++;
 
   if (matrices?.length > 0) {
-    faceDot.classList.add('on');
-    const { yaw, pitch, roll } = matrixToEuler(matrices[0].data);
-
-    vYaw.textContent   = yaw.toFixed(1);
-    vPitch.textContent = pitch.toFixed(1);
-    vRoll.textContent  = roll.toFixed(1);
-
+    ledFace.classList.add('on');
+    lock.classList.add('on'); lock.textContent = 'Face lock';
+    const raw = matrixToEuler(matrices[0].data);
+    const pose = {};
+    for (const k of ["yaw", "pitch", "roll"]) {
+      const f = filters[k];
+      pose[k] = (f ? f.filter(raw[k], now) : raw[k]) - offset[k];
+    }
+    lastPose = pose;
+    for (const k of ["yaw", "pitch", "roll"]) paintAxis(k, pose[k]);
     if (connected && ws?.readyState === WebSocket.OPEN) {
-      ws.send(`{"yaw":${yaw.toFixed(2)},"pitch":${pitch.toFixed(2)},"roll":${roll.toFixed(2)}}`);
+      ws.send(`{"yaw":${pose.yaw.toFixed(2)},"pitch":${pose.pitch.toFixed(2)},"roll":${pose.roll.toFixed(2)}}`);
     }
   } else {
-    faceDot.classList.remove('on');
+    ledFace.classList.remove('on');
+    lock.classList.remove('on'); lock.textContent = 'No face';
   }
 }
 
-// ── WebSocket ─────────────────────────────────────────────────────────────────
-function setStatus(state, text) {
-  dot.className = 'dot ' + state;
-  statusText.textContent = text;
-}
-
+// ── WebSocket ──
 function connect() {
-  setStatus('connecting', 'Connecting…');
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
-
-  ws.onopen = () => {
-    connected = true;
-    setStatus('connected', 'Connected — tracking active');
-  };
+  ws.onopen = () => { connected = true; ledLink.classList.remove('err'); ledLink.classList.add('on'); };
   ws.onclose = () => {
-    connected = false;
-    setStatus('', 'Disconnected — retrying…');
+    connected = false; ledLink.classList.remove('on');
     setTimeout(connect, 2000);
   };
-  ws.onerror = () => {
-    setStatus('error', 'Connection failed');
-  };
+  ws.onerror = () => { ledLink.classList.add('err'); };
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+// ── Boot ──
 (async () => {
   try {
     await startCamera();
     await loadLandmarker();
     overlay.style.display = 'none';
+    keepAwake();
     connect();
     requestAnimationFrame(loop);
   } catch (e) {
-    loadingText.textContent = e.message ?? 'Error — check camera permission';
+    loadingText.classList.add('err');
+    loadingText.textContent = e.friendly ? e.message
+      : (e.name === 'NotAllowedError'
+          ? 'Camera blocked — allow camera access for this site in your browser settings, then reload.'
+          : (e.message ?? 'Something failed while starting — reload to retry.'));
     console.error(e);
   }
 })();

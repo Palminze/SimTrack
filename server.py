@@ -93,11 +93,25 @@ async def main():
             return web.FileResponse(os.path.join(static_dir, name))
         return handler
 
+    assets_dir = os.path.join(static_dir, "assets")
+    asset_types = {".mjs": "text/javascript", ".js": "text/javascript",
+                   ".wasm": "application/wasm", ".task": "application/octet-stream"}
+
+    async def asset(request):
+        full = os.path.realpath(os.path.join(assets_dir, request.match_info["path"]))
+        if not full.startswith(os.path.realpath(assets_dir) + os.sep):
+            raise web.HTTPNotFound()
+        ext = os.path.splitext(full)[1].lower()
+        if ext not in asset_types or not os.path.isfile(full):
+            raise web.HTTPNotFound()
+        return web.FileResponse(full, headers={"Content-Type": asset_types[ext]})
+
     app = web.Application()
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", page("index.html"))
     for name in ("index.html", "demo.html"):
         app.router.add_get(f"/{name}", page(name))
+    app.router.add_get("/assets/{path:.+}", asset)
 
     runner = web.AppRunner(app)
     await runner.setup()

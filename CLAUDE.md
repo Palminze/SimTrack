@@ -143,6 +143,21 @@ Now in `tunnel.py`: downloads cloudflared if missing, launches it, scrapes the
 https URL from stderr, and pushes it into the GUI. Failures surface in the
 window instead of leaving a blank address.
 
+### Done 2026-09-09 (polish pass)
+
+- **MediaPipe self-hosted**: wasm + face model + bundle live in `assets/`,
+  served with explicit MIME types (wasm refuses to stream-compile otherwise)
+  and a traversal-proof route. No Google CDN dependency at runtime.
+- **index.html rewritten** as the sim-cockpit page: One Euro filter smoothing
+  (slider, persisted), the Calibrate button the README always promised,
+  screen wake-lock so phones stop sleeping mid-race, LINK/FACE/FPS status
+  LEDs, friendly camera-over-http error text.
+- demo.html repointed to local assets.
+
+Still needing the owner's purchase: domain (~€12) + small VPS for the
+wildcard-cert/license server that retires TryCloudflare. Then: PyInstaller
+exe + signing, README rewrite, repo private.
+
 ### Open items
 
 1. **`FreeTrackClient.dll`** — not yet shipped. Blocks games that use the DLL path.

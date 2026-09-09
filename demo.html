@@ -468,7 +468,7 @@
 
 <script type="module">
 import { FaceLandmarker, FilesetResolver }
-  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+  from "./assets/vision_bundle.mjs";
 
 const scene     = document.getElementById('scene');
 const faceLed   = document.getElementById('face-led');
@@ -509,12 +509,12 @@ async function startCamera() {
 async function loadLandmarker() {
   loadText.textContent = 'Loading face tracker…';
   const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    "./assets/wasm"
   );
   landmarker = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        "./assets/face_landmarker.task",
       delegate: "GPU"
     },
     outputFacialTransformationMatrixes: true,
