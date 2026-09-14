@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
-SimTrack server — single port for HTTP + WebSocket, tunnel with cloudflared for HTTPS.
+SimTrack Mac dev server — plain http on :8080 for demo.html.
 
-Setup:
+localhost is a secure context, so the camera works in a desktop browser at
+http://localhost:8080/demo.html with nothing else running. This is a
+development convenience only; the product is server_windows.py.
+
   pip3 install aiohttp
   python3 server.py
-
-Then in a NEW terminal:
-  brew install cloudflared
-  cloudflared tunnel --url http://localhost:8080
-
-Open the cloudflare URL on your iPhone — camera will work.
 """
 
 import asyncio

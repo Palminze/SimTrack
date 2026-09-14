@@ -28,8 +28,6 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # Cloudflared binary (downloaded at runtime)
-cloudflared.exe
-/tmp/cloudflared
 
 # Editor
 .vscode/

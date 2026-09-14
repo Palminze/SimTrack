@@ -1,261 +1,130 @@
 # SimTrack
 
-**Free, browser-based head tracking for sim racing using your phone's front camera.**
+**Head tracking for sim racing, using the phone you already own.**
 
-No app install. No hardware. No subscription. Just open a URL on your phone.
+Prop your phone on the monitor, open a link, and your in-game view follows
+your head. No hardware, no phone app, nothing else to install on the PC.
 
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Python](https://img.shields.io/badge/python-3.8%2B-blue)
-![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
-
----
-
-## What is SimTrack?
-
-SimTrack turns your phone into a head tracking device for sim racing. Prop your phone on your monitor, open a URL in Safari or Chrome, and your in-game view follows your head movements in real time — left, right, up, down.
-
-It uses [MediaPipe](https://developers.google.com/mediapipe) running entirely in the browser to detect your head pose. No data leaves your local network.
-
-### How it compares
-
-| | SimTrack | SmoothTrack | TrackIR |
-|---|---|---|---|
-| Cost | **Free** | $10 | $150+ |
-| Setup | Browser URL | App install | Hardware + software |
-| Camera | Any phone (front cam) | iPhone TrueDepth | Dedicated IR camera |
-| Accuracy | Good | Better (depth sensor) | Best |
-| Latency | ~30–80ms | ~15ms | ~5ms |
+- **Works with:** Assetto Corsa, iRacing, Assetto Corsa Competizione (TrackIR
+  titles), Euro Truck Simulator 2, American Truck Simulator, BeamNG.drive
+  (FreeTrack titles), and anything else through OpenTrack.
+- **Needs:** a Windows 10/11 gaming PC, an iPhone or Android phone with a front
+  camera, and both on the same WiFi.
+- **Privacy:** the camera image never leaves the phone. Only three angles per
+  frame travel to your PC over your own network.
 
 ---
 
-## How it works
+## Install (PC)
 
+1. Unzip `SimTrack-windows.zip` anywhere (e.g. `C:\SimTrack`).
+2. Run **`SimTrack.exe`**.
+3. Windows will ask twice on first run:
+   - **SmartScreen** — "Windows protected your PC": click *More info → Run
+     anyway*. Test builds are not code-signed yet.
+   - **Firewall** — "Allow SimTrack to communicate": tick *Private networks*
+     and click *Allow*. Without this your phone can't reach the PC.
+
+A window opens with a QR code. Leave it open while you race.
+
+## Connect the phone (one time, about a minute)
+
+1. **Scan the QR code** with your phone's camera. A setup page opens.
+2. **Install the SimTrack certificate.** Your phone's browser only allows the
+   camera on secure links, so SimTrack makes its own certificate for your PC.
+   The setup page walks you through it:
+   - *iPhone:* Download → Settings → *Profile Downloaded* → Install → then
+     Settings → General → About → **Certificate Trust Settings** → switch on
+     *SimTrack Local CA*. (That last toggle is the step people miss.)
+   - *Android:* Settings → Security → Encryption & credentials → Install a
+     certificate → CA certificate → pick `simtrack-ca.crt`.
+3. **Open the tracker** from the link on that page and allow the camera.
+   Add it to your home screen — next time it's one tap.
+
+You only do this once per phone. If your PC's network address changes later,
+SimTrack reissues its certificate automatically and the phone still trusts it.
+
+## Race
+
+1. Start **SimTrack**, then the game (that order — games look for head
+   tracking when they launch).
+2. Prop the phone on the monitor facing you, about arm's length away.
+3. Sit in your normal driving position, look straight ahead, tap
+   **Calibrate**.
+4. Drive. The **Smoothing** slider trades steadiness for responsiveness —
+   start around 60.
+
+Keep the tracker page open. SimTrack stops the phone from sleeping, but a
+call or switching apps pauses tracking until you come back; the game view
+recentres rather than sticking. Plug the phone in for long sessions — camera
+plus face tracking is heavy on battery.
+
+### Per-game notes
+
+| Game | What to do |
+|---|---|
+| Assetto Corsa, iRacing, ACC | Nothing. They detect head tracking on launch. |
+| Euro Truck Simulator 2, ATS | Options → Controls → Head tracking → **FreeTrack** |
+| BeamNG.drive | Settings → Controls → search "head tracking" → **FreeTrack** |
+| Anything else | Install OpenTrack, set Input to *UDP over network*, port `4242` |
+
+## When something doesn't work
+
+**The QR code won't scan** — type the address shown under it into the
+phone's browser instead.
+
+**"This connection is not private" / certificate warning** — step 2 isn't
+finished. On iPhone, the *Certificate Trust Settings* toggle is almost always
+the missing piece.
+
+**The camera won't start** — you're on the plain `http://` address. The
+camera only works on the `https://` tracker link from the setup page.
+
+**The view doesn't move in the game** — the game was started before SimTrack.
+Quit the game, make sure SimTrack shows *Phone connected · tracking active*,
+start the game again.
+
+**The phone can't load the page at all** — the PC and phone are on different
+networks (guest WiFi, mobile data), or the firewall prompt was declined. Both
+must be on the same WiFi; re-allow SimTrack in *Windows Security → Firewall &
+network protection → Allow an app*.
+
+**Left/right feels reversed** — create a `config.json` next to `SimTrack.exe`:
+
+```json
+{ "invert_yaw": true }
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Your Phone (Safari/Chrome)                                  │
-│  MediaPipe detects head pose → WebSocket → PC               │
-└─────────────────────┬───────────────────────────────────────┘
-                      │  WebSocket (same WiFi)
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Your PC  (server_windows.py)                               │
-│  ├─ FreeTrack shared memory  → ETS2, ATS, BeamNG            │
-│  └─ UDP port 4242 → OpenTrack → Assetto Corsa, ACC, iRacing │
-└─────────────────────────────────────────────────────────────┘
-```
 
-1. The phone opens a webpage served by your PC
-2. MediaPipe runs in the browser, tracking your head at ~30fps
-3. Yaw / pitch / roll angles are streamed over WebSocket to the PC
-4. The PC writes to FreeTrack shared memory — games read it natively
+(`invert_pitch` and `invert_roll` work the same way.)
+
+**Reporting a bug** — send the log file from
+`%LOCALAPPDATA%\SimTrack\simtrack.log` (paste that path into Explorer's
+address bar) together with what you expected to happen.
 
 ---
 
-## Game Compatibility
+## For developers
 
-| Game | Protocol | Setup |
-|---|---|---|
-| Assetto Corsa | TrackIR | ⚙️ Needs OpenTrack |
-| Euro Truck Simulator 2 | FreeTrack | ✅ Direct |
-| American Truck Simulator | FreeTrack | ✅ Direct |
-| BeamNG.drive | FreeTrack | ✅ Direct |
-| iRacing | TrackIR / UDP | ⚙️ Needs OpenTrack |
-| Assetto Corsa Competizione | TrackIR / UDP | ⚙️ Needs OpenTrack |
-| Dirt Rally 2.0 | TrackIR / UDP | ⚙️ Needs OpenTrack |
-| rFactor 2 | TrackIR / UDP | ⚙️ Needs OpenTrack |
-
-> **OpenTrack setup for iRacing/ACC:** Install [OpenTrack](https://github.com/opentrack/opentrack/releases), set Input to **UDP over network** on port **4242**, configure output for your game.
-
----
-
-## Requirements
-
-- **Phone:** iPhone or Android with a front-facing camera
-- **PC:** Windows 10/11 (for gaming) or macOS (for demo/testing)
-- **Python:** 3.8 or newer → [python.org](https://www.python.org/downloads/)
-- **Network:** Phone and PC on the same WiFi
-
----
-
-## Quick Start — Windows (5 minutes)
-
-### 1. Install Python
-
-Download from [python.org](https://www.python.org/downloads/). During install, check **"Add Python to PATH"**.
-
-### 2. Download SimTrack
-
-```
-https://github.com/Palminze/simtrack/archive/refs/heads/main.zip
-```
-
-Extract the zip somewhere on your PC (e.g. `C:\SimTrack`).
-
-### 3. Run
-
-Double-click **`start.bat`**
-
-The first run auto-installs `aiohttp` and downloads `cloudflared`. A window opens showing your phone URL.
-
-### 4. Open on Phone
-
-Open the URL shown in the SimTrack window in **Safari (iPhone)** or **Chrome (Android)**. Allow camera access when prompted.
-
-### 5. Enable in game
-
-**Assetto Corsa:** AC reads TrackIR, not FreeTrack, and has no in-game head
-tracking toggle. Install [OpenTrack](https://github.com/opentrack/opentrack/releases),
-set Input to **UDP over network** port **4242**, set Output to **freetrack 2.0
-enhanced**, and press Start. AC then picks it up automatically.
-
-**ETS2 / ATS:** Options → Controls → Head Tracking → FreeTrack → Enable
-
-**BeamNG:** Settings → Controls → search "Head Tracking" → enable FreeTrack
-
-### 6. Calibrate
-
-Sit in your normal driving position, look straight ahead, then click **Calibrate** on the phone page. The view resets to center.
-
----
-
-## Quick Start — macOS
-
-macOS is supported for development and demo purposes. Full game integration requires Windows.
-
-### 1. Install dependencies
+Run from source on Windows: install Python 3.10+ from python.org (tick *Add
+to PATH*), then double-click `start.bat`. It installs the three dependencies
+and launches the same app.
 
 ```bash
-pip3 install aiohttp
+python3 tools/ft_selftest.py     # FreeTrack byte layout
+python3 tools/test_handshake.py  # game-ID handshake
+python3 tools/test_certs.py      # certificate authority
+python3 tools/e2e_test.py        # phone → server → game pipeline, http + https
 ```
 
-### 2. Run
+All four run on any platform. On the gaming PC, `python tools\ft_check.py
+emit` sweeps a synthetic head into the game link with no phone involved.
 
-```bash
-~/simtrack/start.sh
-```
-
-### 3. Demo
-
-Open `http://localhost:8080/demo.html` in your browser for a visual cockpit demo that reacts to your head movements in real time.
-
----
-
-## iPhone Setup (HTTPS tunnel)
-
-iOS Safari requires HTTPS for camera access. If your iPhone can't reach the PC URL:
-
-### Option A — Same WiFi
-
-**Does not work for the camera.** Browsers only expose `getUserMedia` on secure
-origins, so `http://192.168.x.x:8080` cannot start the camera no matter what
-permissions you grant. The page loads; the camera does not. Use Option B.
-
-### Option B — Cloudflare Tunnel
-
-SimTrack starts the tunnel itself and shows the `https://…trycloudflare.com`
-URL in the window. Open that on your phone — it is the only address that can
-start the camera.
-
-> The tunnel URL changes every time you restart. Bookmark it or re-copy after each restart.
-
----
-
-## Configuration
-
-### Sensitivity
-
-Edit the multipliers in `demo.html` (for the demo) or in your game's head tracking sensitivity settings:
-
-| Setting | Default | Effect |
-|---|---|---|
-| Yaw multiplier | 12px/° | Higher = more responsive left/right |
-| Pitch multiplier | 8px/° | Higher = more responsive up/down |
-| Smoothing | 0.35 | 0 = instant/jittery, 1 = very smooth/laggy |
-
-### Reducing latency
-
-- Use the same WiFi network (avoid 5GHz if range is poor)
-- Increase lighting on your face — MediaPipe is faster with well-lit subjects
-- Move closer to the phone (ideal distance: 60–100cm)
-- Avoid VPN on PC or phone during use
-
----
-
-## Troubleshooting
-
-### Phone page won't load
-- Confirm phone and PC are on the same WiFi (not mobile data)
-- Check the IP address shown in the SimTrack window is correct
-- Temporarily disable Windows Firewall or allow Python through it: **Windows Security → Firewall → Allow an app → Python**
-
-### Camera doesn't start on iPhone
-- Safari requires HTTPS for camera. Use the `trycloudflare.com` URL instead of the local IP
-- Go to **Settings → Safari → Camera** and allow access
-
-### Head tracking not detected in game
-- Start SimTrack **before** launching the game
-- Confirm FreeTrack is selected in game settings (not TrackIR or disabled)
-- For iRacing/ACC: install OpenTrack and set input to UDP port 4242
-
-### Tracking feels off / wrong direction
-- Use the **Calibrate** button while sitting in your normal position looking straight ahead
-- If yaw is inverted, it may be a camera-specific quirk — check phone orientation (should face you upright)
-
-### Port 8080 already in use
-```bash
-# macOS
-pkill -f server.py
-
-# Windows (in cmd)
-netstat -ano | findstr :8080
-taskkill /PID <pid> /F
-```
-
-### `start.bat` closes immediately
-Right-click `start.bat` → **Run as administrator**, or open a Command Prompt and run:
-```
-cd C:\SimTrack
-python server_windows.py
-```
-This shows any error messages.
-
----
-
-## Project Structure
-
-```
-simtrack/
-├── server.py            # Mac/Linux server (HTTP + WebSocket + OpenTrack UDP)
-├── server_windows.py    # Windows server with GUI + FreeTrack shared memory
-├── index.html           # Phone tracker (MediaPipe face tracking in browser)
-├── demo.html            # Visual cockpit demo for testing without a game
-├── start.sh             # macOS one-command launcher
-├── start.bat            # Windows one-command launcher
-└── requirements.txt     # Python dependencies
-```
-
----
-
-## Contributing
-
-Pull requests are welcome. Key areas that need improvement:
-
-- **Accuracy** — better Euler angle decomposition or Kalman filtering
-- **Android testing** — should work but untested
-- **NPClient shared memory** — would eliminate the OpenTrack requirement for iRacing/ACC
-- **Sensitivity UI** — in-phone calibration and curve editor
-- **Auto-discovery** — phone auto-detects PC IP without typing
-
----
+`pyinstaller SimTrack.spec` produces the distributable folder; CI builds it on
+every push (`build-exe.yml`) and the game client DLLs on changes under `dll/`
+(`build-dlls.yml`).
 
 ## License
 
-MIT — free for personal and commercial use. See [LICENSE](LICENSE).
-
----
-
-## Acknowledgements
-
-- [MediaPipe](https://developers.google.com/mediapipe) — face landmark detection
-- [OpenTrack](https://github.com/opentrack/opentrack) — reference for game protocols
-- [aiohttp](https://docs.aiohttp.org/) — async HTTP + WebSocket server
+Proprietary — see `LICENSE`. Third-party components and their terms are listed
+in `dll/PROVENANCE.txt`. (Version 0.1.0 was published under MIT and remains
+available under it.)

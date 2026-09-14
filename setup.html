@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0d0b">
+<title>SimTrack — connect your phone</title>
+<style>
+  :root {
+    --ground: #0a0d0b; --panel: #101511; --edge: #212c23;
+    --ink: #d9e2da; --dim: #6d7c70; --green: #00d96c; --green-dk: #0b3b22;
+    --amber: #f5a623;
+    --mono: ui-monospace, "SF Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.5 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    padding: max(14px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
+  }
+  .wordmark { font-weight: 700; letter-spacing: .06em; font-size: 15px; margin: 4px 0 18px; }
+  .wordmark b { color: var(--green); }
+  h1 { font-size: 24px; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; }
+  .lead { color: var(--dim); margin: 0 0 22px; }
+  .label { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+  .step {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
+    padding: 16px; margin: 0 0 12px;
+  }
+  .step h2 { font-size: 17px; margin: 4px 0 10px; }
+  .step h2 span { color: var(--green); font-family: var(--mono); margin-right: 8px; }
+  ol { margin: 0; padding-left: 20px; }
+  li { margin: 0 0 8px; }
+  li::marker { color: var(--dim); }
+  .btn {
+    display: block; text-align: center; text-decoration: none;
+    border: 1px solid var(--green-dk); border-radius: 6px;
+    background: linear-gradient(180deg, #103023, #0b241a); color: var(--green);
+    font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    padding: 15px; margin: 12px 0 6px;
+  }
+  .btn.secondary { background: var(--panel); border-color: var(--edge); color: var(--ink); }
+  .btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  .url { font-family: var(--mono); font-size: 14px; color: var(--green); word-break: break-all; }
+  .hint { font-size: 13px; color: var(--dim); margin: 8px 0 0; }
+  .platform { display: none; }
+  .platform.show { display: block; }
+  .switch { font-size: 13px; color: var(--dim); text-align: center; margin-top: 4px; }
+  .switch a { color: var(--ink); }
+  .why { border-left: 3px solid var(--amber); padding: 6px 12px; margin: 18px 0 0; font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="wordmark">SIM<b>TRACK</b></div>
+<h1>Connect your phone</h1>
+<p class="lead">One-time setup, about a minute. After this, the tracker opens instantly every time.</p>
+
+<div class="step">
+  <span class="label">Step 1 of 2</span>
+  <h2><span>01</span>Trust SimTrack's certificate</h2>
+  <p>Your phone's browser only allows the camera on secure links. SimTrack makes its own certificate for your PC — install it once and the link becomes trusted.</p>
+  <a class="btn" href="/simtrack-ca.crt" download="simtrack-ca.crt">Download certificate</a>
+
+  <div class="platform" id="ios">
+    <p class="hint">Then on iPhone / iPad:</p>
+    <ol>
+      <li>Tap <b>Allow</b> when Safari asks to download a profile.</li>
+      <li>Open <b>Settings</b> → tap <b>Profile Downloaded</b> at the top → <b>Install</b>.</li>
+      <li>Open <b>Settings → General → About → Certificate Trust Settings</b> and switch on <b>SimTrack Local CA</b>.</li>
+    </ol>
+  </div>
+  <div class="platform" id="android">
+    <p class="hint">Then on Android:</p>
+    <ol>
+      <li>Open <b>Settings → Security → Encryption &amp; credentials</b> (name varies slightly by phone).</li>
+      <li>Tap <b>Install a certificate → CA certificate</b> → <b>Install anyway</b>.</li>
+      <li>Pick <b>simtrack-ca.crt</b> from your Downloads.</li>
+    </ol>
+  </div>
+  <p class="switch">Showing steps for <b id="plat-name">your phone</b> · <a href="#" id="plat-toggle">show the other</a></p>
+</div>
+
+<div class="step">
+  <span class="label">Step 2 of 2</span>
+  <h2><span>02</span>Open the tracker</h2>
+  <p>Once the certificate is trusted, this link opens with a working camera. Add it to your home screen so it's one tap next time.</p>
+  <a class="btn" href="{{HTTPS_URL}}">Open SimTrack</a>
+  <p class="url">{{HTTPS_URL}}</p>
+  <p class="hint">If you see a certificate warning here, step 1 isn't finished yet — on iPhone the Certificate Trust Settings toggle is the one people miss.</p>
+</div>
+
+<p class="why">Nothing leaves your home network. The camera image is processed on the phone; only three angles per frame travel to your PC over WiFi.</p>
+
+<script>
+  var ua = navigator.userAgent, isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var cur = isIOS ? 'ios' : 'android';
+  function show(p) {
+    cur = p;
+    document.getElementById('ios').classList.toggle('show', p === 'ios');
+    document.getElementById('android').classList.toggle('show', p === 'android');
+    document.getElementById('plat-name').textContent = p === 'ios' ? 'iPhone' : 'Android';
+  }
+  show(cur);
+  document.getElementById('plat-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); show(cur === 'ios' ? 'android' : 'ios');
+  });
+</script>
+</body>
+</html>

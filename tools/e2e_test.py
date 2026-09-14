@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """End-to-end test of the PC pipeline, no GUI, no game, any platform.
 
-Boots the real aiohttp app from server_windows.py, connects a fake phone over
-WebSocket, and verifies pose comes out the UDP side — plus that the server
-refuses to serve anything beyond the two public pages.
+Boots the real aiohttp app from server_windows.py on both an http and an
+https site (with a certificate from a throwaway CA), plays phone over a
+secure WebSocket, and verifies pose comes out the UDP side -- plus that the
+server serves exactly the public surface and nothing else.
 """
 
 import asyncio
@@ -12,6 +13,7 @@ import os
 import socket
 import struct
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -19,10 +21,10 @@ sys.path.insert(0, ROOT)
 import aiohttp  # noqa: E402
 from aiohttp import web  # noqa: E402
 
+import certs  # noqa: E402
 import server_windows as sw  # noqa: E402
-from freetrack import decode  # noqa: E402
 
-HOST, PORT = "127.0.0.1", 18080
+HOST, HTTP, HTTPS = "127.0.0.1", 18080, 18443
 fails = []
 
 
@@ -32,55 +34,77 @@ def check(label, ok, detail=""):
         fails.append(label)
 
 
-async def main():
+async def recv_udp(udp, loop, timeout=2.0):
+    pkt = await asyncio.wait_for(loop.sock_recv(udp, 64), timeout)
+    return struct.unpack("<6d", pkt)
+
+
+async def main(tmp):
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp.bind((sw.OPENTRACK_IP, sw.OPENTRACK_PORT))
     udp.setblocking(False)
     loop = asyncio.get_running_loop()
 
-    runner = web.AppRunner(sw.build_app())
+    paths = certs.ensure_certs(HOST, tmp)
+    runner = web.AppRunner(sw.build_app(ca_path=paths["ca"]))
     await runner.setup()
-    await web.TCPSite(runner, HOST, PORT).start()
-    base = f"http://{HOST}:{PORT}"
+    await web.TCPSite(runner, HOST, HTTP).start()
+    await web.TCPSite(runner, HOST, HTTPS,
+                      ssl_context=certs.ssl_context(paths["cert"], paths["key"])).start()
+    http, https = f"http://{HOST}:{HTTP}", f"https://{HOST}:{HTTPS}"
 
     async with aiohttp.ClientSession() as s:
-        print("HTTP surface")
-        for path, want in [("/", 200), ("/index.html", 200), ("/demo.html", 200),
-                           ("/server_windows.py", 404), ("/freetrack.py", 404),
+        print("Public surface (http)")
+        for path, want in [("/", 200), ("/index.html", 200), ("/setup", 200),
+                           ("/simtrack-ca.crt", 200),
+                           ("/demo.html", 404), ("/server_windows.py", 404),
+                           ("/freetrack.py", 404), ("/certs.py", 404),
                            ("/key.pem", 404), ("/.git/config", 404),
                            ("/CLAUDE.md", 404), ("/../server.py", 404)]:
-            async with s.get(base + path) as r:
+            async with s.get(http + path) as r:
                 check(f"GET {path} -> {want}", r.status == want, f"got {r.status}")
+
+        print("\nOne address, two jobs")
+        async with s.get(http + "/") as r:
+            body = await r.text()
+            check("http / is the setup page", "Connect your phone" in body)
+            check("setup page has the tracker url filled in",
+                  "{{HTTPS_URL}}" not in body and "https://" in body)
+        async with s.get(https + "/", ssl=False) as r:
+            body = await r.text()
+            check("https / is the tracker", r.status == 200 and 'id="cal"' in body)
+        async with s.get(http + "/simtrack-ca.crt") as r:
+            ca = await r.read()
+            check("CA download is a certificate",
+                  r.headers["Content-Type"] == "application/x-x509-ca-cert"
+                  and ca.startswith(b"-----BEGIN CERTIFICATE-----"))
+            check("CA download is an attachment",
+                  "simtrack-ca.crt" in r.headers.get("Content-Disposition", ""))
 
         print("\nSelf-hosted MediaPipe assets")
         for path, want_type in [("/assets/vision_bundle.mjs", "text/javascript"),
                                 ("/assets/wasm/vision_wasm_internal.wasm", "application/wasm"),
                                 ("/assets/face_landmarker.task", "application/octet-stream")]:
-            async with s.get(base + path) as r:
+            async with s.get(https + path, ssl=False) as r:
                 check(f"GET {path}", r.status == 200 and r.headers["Content-Type"] == want_type,
                       f"{r.status} {r.headers.get('Content-Type')}")
         for path in ["/assets/../server_windows.py", "/assets/%2e%2e/key.pem",
                      "/assets/missing.wasm", "/assets/wasm/../../freetrack.py"]:
-            async with s.get(base + path) as r:
+            async with s.get(http + path) as r:
                 check(f"GET {path} -> 404", r.status == 404, f"got {r.status}")
 
-        print("\nPipeline: phone -> WebSocket -> UDP")
-        spectator = await s.ws_connect(base + "/ws")   # stands in for demo.html
-        phone = await s.ws_connect(base + "/ws")
+        print("\nPipeline: phone (wss) -> server -> UDP + shared memory")
+        spectator = await s.ws_connect(http + "/ws")            # stands in for the Mac demo
+        phone = await s.ws_connect(https + "/ws", ssl=False)     # the real path
 
         await phone.send_str(json.dumps({"yaw": 12.5, "pitch": -3.25, "roll": 1.5}))
-        data = await asyncio.wait_for(loop.sock_recv(udp, 64), 2)
-        x, y, z, yaw, pitch, roll = struct.unpack("<6d", data)
-        check("UDP packet is 48 bytes", len(data) == 48)
-        check("yaw/pitch/roll intact", (yaw, pitch, roll) == (12.5, -3.25, 1.5),
+        x, y, z, yaw, pitch, roll = await recv_udp(udp, loop)
+        check("yaw/pitch/roll intact over wss", (yaw, pitch, roll) == (12.5, -3.25, 1.5),
               f"got {(yaw, pitch, roll)}")
-
         msg = await asyncio.wait_for(spectator.receive(), 2)
-        relayed = json.loads(msg.data)
-        check("relayed to other clients", relayed["yaw"] == 12.5)
-
+        check("relayed to other clients", json.loads(msg.data)["yaw"] == 12.5)
         ft = sw.freetrack.read_back()
-        check("FreeTrack buffer written (yaw inverted by default)",
+        check("FreeTrack buffer written (yaw inverted by protocol)",
               abs(ft["Yaw"] - (-12.5)) < 0.01, f"got {ft['Yaw']:.2f}")
 
         print("\nHostile input does not kill the stream")
@@ -92,10 +116,9 @@ async def main():
         deadline = loop.time() + 2
         while loop.time() < deadline:
             try:
-                pkt = await asyncio.wait_for(loop.sock_recv(udp, 64), 0.5)
+                vals = (await recv_udp(udp, loop, 0.5))[3:]
             except asyncio.TimeoutError:
                 break
-            vals = struct.unpack("<6d", pkt)[3:]
             seen.append(vals)
             got = vals
             if vals == (1.0, 2.0, 3.0):
@@ -104,8 +127,21 @@ async def main():
         finite = all(v == v and abs(v) != float("inf") for vs in seen for v in vs)
         check("no non-finite values reached UDP", finite, f"saw {seen}")
 
+        print("\nPhone disconnects: view recentres instead of freezing")
         await phone.close()
         await spectator.close()
+        zeroed = False
+        deadline = loop.time() + 2
+        while loop.time() < deadline:
+            try:
+                vals = (await recv_udp(udp, loop, 0.5))[3:]
+            except asyncio.TimeoutError:
+                break
+            if vals == (0.0, 0.0, 0.0):
+                zeroed = True
+                break
+        check("zero pose sent on last disconnect", zeroed)
+        check("shared memory recentred", abs(sw.freetrack.read_back()["Yaw"]) < 0.01)
 
     await runner.cleanup()
     udp.close()
@@ -118,4 +154,5 @@ async def main():
     return 0
 
 
-sys.exit(asyncio.run(main()))
+with tempfile.TemporaryDirectory() as _tmp:
+    sys.exit(asyncio.run(main(_tmp)))

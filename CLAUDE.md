@@ -1,205 +1,98 @@
 # SimTrack — working context
 
-Phone-camera head tracking for sim racing. MediaPipe runs in the phone browser,
-pose streams over WebSocket to the PC, PC writes FreeTrack shared memory (games
-read it natively) and UDP 4242 for OpenTrack.
+Phone-camera head tracking for sim racing. MediaPipe runs in the phone
+browser, pose streams over WebSocket to the PC, the PC writes FreeTrack shared
+memory, and two client DLLs hand it to games. Customers install one thing.
 
 ## Machines
 
-- **Mac** (`~/simtrack`) — development. Cannot test FreeTrack; shared memory is Windows-only.
-- **Windows** (`C:\Users\<you>\SimTrack`) — the gaming PC. All real testing happens here.
-- Sync between them is this git repo. Remote is SSH (`git@github.com:Palminze/SimTrack.git`).
+- **Mac** (`~/simtrack`) — development. No shared memory here; the game side
+  cannot be exercised, everything else can.
+- **Windows** (`C:\Users\mielk\SimTrack`) — the gaming PC. All real testing.
+- Sync is this git repo, SSH remote `git@github.com:Palminze/SimTrack.git`.
 
-## Goal
+## Decisions (owner's, final)
 
-Make this clean and sellable. Two decisions already made:
+- **Fully commercial, closed source.** `LICENSE` is proprietary as of
+  2026-09-14; v0.1.0 stays MIT and forkable forever. Repo must go private —
+  still public as of this writing, owner's click.
+- **No OpenTrack, no tunnel, no third party.** SimTrack is its own
+  certificate authority (`certs.py`) and ships its own game client DLLs.
+  The earlier "buy a domain + wildcard cert" plan is **unnecessary for HTTPS**
+  now; a domain would only matter for a future license server.
+- **TrackIR interface emulation accepted** with its NaturalPoint risk, flagged
+  three times. One IP-lawyer hour recommended before selling.
 
-- **Business model: fully commercial, closed source.** Repo goes private, future
-  versions relicensed. Note v0.1.0 is MIT and stays forkable forever.
-- **HTTPS approach: wildcard domain + real certificate.** Buy a domain, wildcard
-  DNS maps `192-168-1-42.yourdomain.com` → that private IP, ship a trusted cert.
-  Real HTTPS on pure LAN, no tunnel, lowest latency — how Plex does it.
-  Caveat: a wildcard private key shipped inside a distributed binary will get
-  extracted and revoked. Per-install certs issued by a license server avoid this
-  and double as the license check.
+## Architecture
 
-## State of play
-
-### Done (commit bbc7016)
-
-FreeTrack was fundamentally broken and had never worked. The struct was
-`<3i 14f i` (72 bytes) with marker points before the pose fields, but FreeTrack
-2.0 is 108 bytes with Yaw/Pitch/Roll immediately after the three header ints.
-Games reading Yaw at offset 12 got a constant `0.0` — tracking was inert, not
-inaccurate. Also: angles were degrees (spec wants radians), no `FT_Mutext`
-guard, no `FreeTrackClient.dll` registry path.
-
-Fixed in `freetrack.py`. Server-thread exceptions were also being swallowed —
-`server_windows.py` now catches them and the GUI polls health, so a dead server
-no longer looks like "waiting for phone…".
-
-### Game routing — corrected 2026-09-08
-
-**Assetto Corsa has no FreeTrack option.** It reads TrackIR and detects it
-automatically. The README previously claimed "FreeTrack, works out of the box"
-for AC; that was false and is now fixed. AC must go through OpenTrack:
-Input = UDP over network 4242, Output = freetrack 2.0 enhanced.
-
-FreeTrack shared memory is the direct path only for **ETS2, ATS, BeamNG**.
-
-SUPERSEDED 2026-09-09: the owner decided OpenTrack must go — customers touch
-only SimTrack. Architecture now: SimTrack writes FT_SharedMem (as before), and
-two client DLLs serve the games from it directly:
-
-- `bin/NPClient.dll` + `NPClient64.dll` → TrackIR titles (AC, iRacing, ACC).
-  Source `dll/npclient.c`, vendored from opentrack contrib — linuxtrack's
-  clean-room, permissively licensed implementation (see dll/PROVENANCE.txt).
-- `bin/freetrackclient.dll` (+64) → FreeTrack titles (ETS2, ATS, BeamNG).
-  Source `dll/freetrackclient.c`, written fresh for SimTrack — opentrack's
-  version descends from FreeTrack's GPL Delphi code, so it was NOT copied.
-
-Registry keys (set automatically at server start, `freetrack.py`):
-HKCU\Software\FreeTrack\FreeTrackClient\Path and
-HKCU\Software\NaturalPoint\NATURALPOINT\NPClient Location → both point at bin/.
-
-GameID handshake: games write their ID into the heap; `poll_game()` answers
-with the scramble table from `dll/games.csv` and echoes GameID2. Pose writes
-deliberately stop at byte 92 so they never clobber this tail.
-
-DLLs are cross-compiled by `.github/workflows/build-dlls.yml` (mingw, 32+64
-bit) and committed to `bin/` by CI — `git pull` after the workflow runs.
-NaturalPoint interface-emulation risk was flagged three times and accepted by
-the owner; it is inherent to the feature, not to whose code implements it.
-
-### NEXT STEP — run on Windows
-
-```powershell
-python tools\ft_check.py udp      # Assetto Corsa, via OpenTrack
-python tools\ft_check.py emit     # ETS2 / ATS / BeamNG, direct
+```
+PHONE  index.html (https only)  MediaPipe → One Euro → calibrate → WebSocket
+PC     server_windows.py
+         :8080 http   setup.html + /simtrack-ca.crt   (one-time phone onboarding)
+         :8443 https  index.html + assets/ + /ws       (the tracker)
+         certs.py     local CA in %LOCALAPPDATA%\SimTrack, leaf for the LAN IP
+         freetrack.py FT_SharedMem (108-byte FreeTrack 2.0) + GameID handshake
+         UDP :4242    optional, for OpenTrack users
+GAMES  bin/NPClient(.64).dll        → TrackIR titles (AC, iRacing, ACC)
+       bin/freetrackclient(.64).dll → FreeTrack titles (ETS2, ATS, BeamNG)
+       found via HKCU registry keys set at startup
 ```
 
-Both drive a synthetic ±25° sweep, so the game link is provable with **no phone
-involved**. `emit` is confirmed working on the Windows PC — shared memory maps
-and frames count up. Whether a game reacts is still unverified.
+`BASE` is `sys._MEIPASS` when frozen (PyInstaller onedir) else the source dir;
+`config.json` is read from next to the exe. Frozen runs log to
+`%LOCALAPPDATA%\SimTrack\simtrack.log` (no console).
 
-If a FreeTrack game stays static, the missing piece is `FreeTrackClient.dll`
-plus its registry path (`tools/ft_check.py register <dir>`) — most FreeTrack
-games load that DLL rather than reading shared memory directly.
+## Verified
 
-### VERIFIED 2026-09-08: game side works end to end
+- FreeTrack byte layout, radians, mutex, handshake — `tools/ft_selftest.py`,
+  `tools/test_handshake.py`.
+- UDP → OpenTrack → Assetto Corsa moved the in-game view (2026-09-08, on the
+  Windows PC, synthetic sweep). Port is **4242**.
+- Certificate authority meets iOS leaf rules — `tools/test_certs.py`.
+- http/https surface, wss pipeline, asset MIME + traversal, hostile input,
+  recentre on disconnect — `tools/e2e_test.py` (31 checks).
+- GUI builds all cards (fake-Tk smoke run; a real bug was found this way once).
 
-**Assetto Corsa reads the data.** SimTrack → UDP → OpenTrack → AC is proven
-with synthetic input. The game half of the product is done; every remaining
-problem is on the phone side.
+## Not yet verified — the owner will run these
 
-Next cheap win before building certificate infrastructure: run the **whole**
-chain with the existing cloudflared tunnel to confirm a real head drives the
-game. That surfaces pose quality, jitter and axis directions — none of which
-can be learned from a synthetic sweep — and it needs no new infrastructure.
-Only then is the wildcard-cert work worth starting.
+1. **A real head driving Assetto Corsa** through the DLL path (no OpenTrack).
+   Unknown until then: pose accuracy, whether One Euro defaults (minCutoff
+   4.5→0.5, beta 0.05) feel right, axis directions (`invert_*` in config).
+2. **Phone certificate install flow** on a real iPhone and Android.
+3. **The CI-built `SimTrack.exe`** on the Windows PC (`build-exe.yml` artifact).
 
-Expect two immediate findings from that test: raw MediaPipe output is jittery
-(no smoothing exists yet, open item 4) and axis directions may be inverted
-(flags are in `freetrack.py`; the UDP path in `server_windows.py` has none yet).
+Do not ask the owner to report back; they will initiate.
 
-### VERIFIED 2026-09-08: UDP → OpenTrack works
+## Do not re-investigate
 
-`python tools\ft_check.py udp` moves OpenTrack's octopus preview. SimTrack's
-UDP packet format (six little-endian doubles, x/y/z/yaw/pitch/roll, degrees)
-is correct and OpenTrack receives it. **Port is 4242** — the default was right.
+- "Requested device was not found" on the PC browser was `getUserMedia` on a
+  PC with no webcam, printed by our own page. The server was fine.
+- OpenTrack "not receiving": it was not bound until relaunched; a `4376` read
+  off its dialog was the output port. Ask the OS what is bound, not the UI.
+- `cert.pem`/`key.pem` exist in public git history (commit `e8c97c4`);
+  scrub before any buyer audit. A dead GitHub PAT was in `.git/config`, gone.
+- Assetto Corsa has **no FreeTrack toggle**; it reads TrackIR automatically.
+- Games with `since != V160` in `dll/games.csv` scramble their data; the
+  handshake supplies the table. Pose writes stop at byte 92 so they never
+  clobber the handshake tail.
 
-Getting there cost most of a session, for reasons worth not repeating:
+## Provenance
 
-- OpenTrack was not binding its port at all until it was relaunched. It showed
-  a normal window and an apparently-pressed Start the whole time.
-- A `4376` read off an OpenTrack dialog was a red herring (output side, not
-  input). Do not trust the dialogs — ask the OS what is actually bound:
-  `$p = (Get-Process opentrack).Id; netstat -ano -p UDP | Select-String " $p$"`
-- An earlier probe reported "nothing listening" against a bound socket because
-  it bound loopback instead of the wildcard. Fixed, but it wasted a cycle.
+`dll/PROVENANCE.txt`. `npclient.c` is linuxtrack's clean-room permissive
+implementation (vendored via opentrack contrib); `freetrackclient.c` was
+written for SimTrack, not taken from opentrack's GPL-descended one;
+`games.csv` is FaceTrackNoIR heritage under its 2015 permissive relicense.
 
-**Do not create a config.json with opentrack_port 4376** — 4242 is correct here.
-The setting exists because the port genuinely varies between installs, not
-because this machine needs it.
+## Open items, in order
 
-### Diagnosing "no tracking in game"
-
-Check in this order:
-
-```powershell
-netstat -ano | findstr <port>
-python tools\ft_check.py probe --port <port>
-```
-
-### The tunnel was never started on Windows
-
-`start.bat` downloaded `cloudflared.exe` and nothing ever ran it —
-`server_windows.py` had no reference to cloudflared at all, so the GUI only
-ever showed the LAN HTTP address, which cannot start a phone camera. The
-README claimed start.bat "automatically handles this". Only `start.sh` (macOS)
-actually launched a tunnel.
-
-Now in `tunnel.py`: downloads cloudflared if missing, launches it, scrapes the
-https URL from stderr, and pushes it into the GUI. Failures surface in the
-window instead of leaving a blank address.
-
-### Done 2026-09-09 (polish pass)
-
-- **MediaPipe self-hosted**: wasm + face model + bundle live in `assets/`,
-  served with explicit MIME types (wasm refuses to stream-compile otherwise)
-  and a traversal-proof route. No Google CDN dependency at runtime.
-- **index.html rewritten** as the sim-cockpit page: One Euro filter smoothing
-  (slider, persisted), the Calibrate button the README always promised,
-  screen wake-lock so phones stop sleeping mid-race, LINK/FACE/FPS status
-  LEDs, friendly camera-over-http error text.
-- demo.html repointed to local assets.
-
-Still needing the owner's purchase: domain (~€12) + small VPS for the
-wildcard-cert/license server that retires TryCloudflare. Then: PyInstaller
-exe + signing, README rewrite, repo private.
-
-### Open items
-
-1. **`FreeTrackClient.dll`** — not yet shipped. Blocks games that use the DLL path.
-2. **Camera needs a secure context.** iOS Safari does not expose `getUserMedia`
-   over plain `http://192.168.x.x`. This is why cloudflared exists in `start.bat`.
-   The README's "Option A — iOS allows camera over local network HTTP" is WRONG.
-   Superseded by the wildcard-cert plan above.
-3. **No Calibrate button.** README tells users to click one twice; it does not
-   exist in `index.html`. No recenter, no hotkey.
-4. **No smoothing.** Raw MediaPipe angles go straight over the wire — jittery.
-   README documents a `0.35` smoothing setting that exists nowhere in the code.
-5. **Latency claim vs architecture.** Advertises 30–80ms, but the only working
-   phone path routes every frame through Cloudflare's edge and back.
-6. **3DOF only.** No translation (X/Y/Z), no per-game profiles, no tray icon,
-   no autostart — the things people pay for over free alternatives.
-7. **Packaging.** "Install Python, run a .py" is not a product. Needs a
-   PyInstaller exe + code signing cert (~$200–400/yr) or buyers hit SmartScreen.
-8. **`cert.pem` / `key.pem` are in public git history** (commit `e8c97c4`).
-   Self-signed localhost certs, low impact, but scrub before any buyer audit.
-
-### Resolved, do not re-investigate
-
-The Windows "port 8080 unreachable" hunt was a false trail. "Requested device
-was not found" is the browser's `getUserMedia` error, printed by our own page
-at `index.html:269`, which dumps `e.message` into the loading overlay. The PC
-had no webcam. **aiohttp was binding port 8080 correctly the whole time.**
-Firewall rules and netstat checks were chasing a ghost.
-
-A GitHub PAT was embedded in `.git/config`; the remote is now SSH and the token
-was already dead. Confirm it is revoked at github.com/settings/tokens.
-
-## Verifying changes
-
-```bash
-python3 tools/ft_selftest.py    # runs anywhere, no Windows needed
-```
-
-Checks struct sizes, field offsets, radian conversion, round-tripping, and
-inversion flags. Keep it passing — it is the guard against silently
-reintroducing a wrong byte layout, which is a failure mode with no error message.
+1. Owner's three verifications above.
+2. Repo private.
+3. Code signing (Microsoft Artifact Signing $9.99/mo if eligible, else OV
+   cert ~$219/yr) — until then testers click through SmartScreen.
+4. Scrub `e8c97c4` certs from history before any external audit.
+5. Nice-to-have: 6DOF translation, per-game profiles, tray icon, autostart.
 
 ## Style
 
-Keep answers short. Give % progress during multi-step work. Do not ask the user
-to report back after hardware or in-game tests — they will initiate.
+Keep answers short. Give % progress during multi-step work. Never ask the
+owner to report back after hardware or in-game tests.
