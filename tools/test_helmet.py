@@ -37,6 +37,12 @@ print("Mesh")
 check("has faces", len(helmet.FACES) > 100, f"{len(helmet.FACES)} faces")
 check("has a visor", helmet.KINDS.count("visor") >= 12, f"{helmet.KINDS.count('visor')} visor faces")
 check("neck is open", len(helmet.FACES) < helmet.NLAT * helmet.NLON)
+check("has a crown stripe", helmet.KINDS.count("stripe") >= 4, f"{helmet.KINDS.count('stripe')} stripe faces")
+check("has a chin vent", helmet.KINDS.count("vent") >= 1, f"{helmet.KINDS.count('vent')} vent faces")
+front = [v for v in helmet.VERTS if v[2] > 0.9]
+back = [v for v in helmet.VERTS if v[2] < -0.9]
+check("chin bar juts forward (not a sphere)", max(v[2] for v in helmet.VERTS) > 1.15,
+      f"max z {max(v[2] for v in helmet.VERTS):.2f}")
 
 print("\nAt rest")
 rest = helmet.render(0, 0, 0, W, H)
