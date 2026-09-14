@@ -1,5 +1,53 @@
 # SimTrack — working context
 
+## START HERE (workplan, 2026-09-14 — owner is low on tokens; be frugal)
+
+Rules for this session: do not re-read the whole repo, do not redesign
+anything, do not reopen decisions listed below, do not ask the owner to
+report test results. Read only the files a task names. Verify with the test
+commands, commit small, push. One task at a time, in this order:
+
+1. **Confirm the web-view window opens on Windows.** Owner runs
+   `.\start.bat`. If it crashes: read `%LOCALAPPDATA%\SimTrack\simtrack.log`
+   or the terminal, fix, push. If pywebview itself won't load, the app must
+   have fallen back to the classic window — that is acceptable for launch.
+   Files: `desktop.py`, `desktop.html`, `server_windows.py` (entry point only).
+2. **Confirm CI builds the exe with pywebview.** Check
+   github.com/Palminze/SimTrack/actions → latest *build-exe*. If the
+   PyInstaller step fails, the fix is in `SimTrack.spec` (collect_all list /
+   hiddenimports). Done when the artifact zip exists and `SimTrack.exe`
+   opens on the owner's PC.
+3. **EULA acceptance on first run.** In `desktop.html` add an overlay
+   ("I accept the terms" → link to docs/terms.html text) shown until
+   `state.eula_accepted` is true; add `Api.accept_eula()` in `desktop.py`
+   writing a flag file in `certs.user_dir()`; include `eula_accepted` in
+   `app_state()` in `server_windows.py`. Extend `tools/test_state.py`.
+   ~60 lines total. Do not add license-key checks (deliberately month 2).
+4. **Fill the site constants** when the owner provides them: the three
+   values at the bottom of `docs/index.html` (checkout URL, Discord, email).
+   Nothing else on the site needs changing.
+5. **Sign the exe** once the owner has a code-signing cert: add a signtool
+   step to `.github/workflows/build-exe.yml` after PyInstaller, cert + password
+   from GitHub secrets. Then delete the "Windows warns me" FAQ answer's
+   first sentence in `docs/index.html` and `README.md`.
+6. **After the repo is private:** scrub `cert.pem`/`key.pem` from history
+   (`git filter-repo --path cert.pem --path key.pem --invert-paths`, force
+   push; owner re-clones on Windows).
+7. Month 2, only if sales happen: license activation via Lemon Squeezy's
+   license API; 6-DOF translation; per-game profiles; tray icon.
+
+Verify any change with (all run on any OS, ~20 s total):
+```
+python3 tools/ft_selftest.py && python3 tools/test_handshake.py && \
+python3 tools/test_certs.py && python3 tools/test_pose_math.py && \
+python3 tools/test_helmet.py && python3 tools/test_state.py && \
+python3 tools/e2e_test.py
+```
+Launch plan for the owner (not for you to redo):
+https://claude.ai/code/artifact/f901a401-3da4-4857-b63f-65fa039e8742
+
+---
+
 Phone-camera head tracking for sim racing. MediaPipe runs in the phone
 browser, pose streams over WebSocket to the PC, the PC writes FreeTrack shared
 memory, and two client DLLs hand it to games. Customers install one thing.
@@ -100,14 +148,20 @@ implementation (vendored via opentrack contrib); `freetrackclient.c` was
 written for SimTrack, not taken from opentrack's GPL-descended one;
 `games.csv` is FaceTrackNoIR heritage under its 2015 permissive relicense.
 
-## Open items, in order
+## Open items
 
-1. Owner's three verifications above.
-2. Repo private.
-3. Code signing (Microsoft Artifact Signing $9.99/mo if eligible, else OV
-   cert ~$219/yr) — until then testers click through SmartScreen.
-4. Scrub `e8c97c4` certs from history before any external audit.
-5. Nice-to-have: 6DOF translation, per-game profiles, tray icon, autostart.
+See START HERE at the top — that list is the current order. Owner-side
+items not for a session to do: Lemon Squeezy account, code-signing cert
+purchase, repo private (kills GitHub Pages unless Pro, or move `docs/` to
+its own public repo), Discord server, the friend's beta-tester post.
+
+## Sales site
+
+`docs/` is the public sales page (GitHub Pages) in the product's identity:
+`index.html` (hero, how it works, games in three tiers, price, FAQ),
+`terms.html`, `privacy.html`, `refunds.html`, `legal.css`, `fonts/`, `img/`.
+The three constants at the bottom of `index.html` wire checkout, Discord
+and email. Keep "verified" honest: only games a named person ran.
 
 ## Style
 
