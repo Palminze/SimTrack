@@ -231,14 +231,17 @@ function setPos(i) {
 switchBtns.forEach(b => b.addEventListener('click', () => setPos(+b.dataset.i)));
 setPos(pos);
 
-// ── Center: current pose becomes straight-ahead ──
-const offset = { yaw: 0, pitch: 0, roll: 0 };
-let lastPose = { yaw: 0, pitch: 0, roll: 0 };
+// ── Centering. The rest pose is kept as a rotation and every frame is
+//    expressed relative to it (R0ᵀ·R). Subtracting three angles cannot
+//    remove the phone's tilt -- a pure head turn would leak into roll and
+//    pitch -- but subtracting the rotation removes it exactly; see
+//    tools/test_pose_math.py. Auto-centres on the first face lock. ──
+let R0 = null;                 // rest orientation, 3x3
+let capture = null;            // frames being averaged for a new R0
+const CAPTURE_FRAMES = 12;
+function requestCenter() { capture = []; }
 const cal = $('cal');
-cal.addEventListener('click', () => {
-  offset.yaw += lastPose.yaw; offset.pitch += lastPose.pitch; offset.roll += lastPose.roll;
-  cal.classList.add('flash'); setTimeout(() => cal.classList.remove('flash'), 500);
-});
+cal.addEventListener('click', requestCenter);
 
 // ── Camera ──
 async function startCamera() {
@@ -268,13 +271,31 @@ async function loadLandmarker() {
   });
 }
 
-// ── Head pose from the 4x4 column-major transform ──
-function matrixToEuler(m) {
+// ── Rotation helpers. MediaPipe's matrix is 4x4 column-major: R[r][c] = m[c*4+r]. ──
+function rot(m) { return [[m[0], m[4], m[8]], [m[1], m[5], m[9]], [m[2], m[6], m[10]]]; }
+function mulTN(A, B) {                                   // Aᵀ · B
+  const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++)
+    C[i][j] = A[0][i] * B[0][j] + A[1][i] * B[1][j] + A[2][i] * B[2][j];
+  return C;
+}
+function meanRotation(list) {                            // average, then re-orthonormalise
+  const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const R of list) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] += R[i][j] / list.length;
+  const col = j => [M[0][j], M[1][j], M[2][j]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  const c0 = norm(col(0));
+  let c1 = col(1); const d = dot(c1, c0); c1 = norm([c1[0] - d * c0[0], c1[1] - d * c0[1], c1[2] - d * c0[2]]);
+  const c2 = [c0[1] * c1[2] - c0[2] * c1[1], c0[2] * c1[0] - c0[0] * c1[2], c0[0] * c1[1] - c0[1] * c1[0]];
+  return [[c0[0], c1[0], c2[0]], [c0[1], c1[1], c2[1]], [c0[2], c1[2], c2[2]]];
+}
+function euler(R) {                                      // ZYX; yaw/pitch negated for the mirrored front camera
   const toD = 180 / Math.PI;
-  const headTurn = Math.asin(-Math.max(-1, Math.min(1, m[2]))) * toD;
-  const headNod = Math.atan2(m[6], m[10]) * toD;
-  const headTilt = Math.atan2(m[1], m[0]) * toD;
-  return { yaw: -headTurn, pitch: -headNod, roll: headTilt };
+  const yaw = Math.asin(-Math.max(-1, Math.min(1, R[2][0]))) * toD;
+  const pitch = Math.atan2(R[2][1], R[2][2]) * toD;
+  const roll = Math.atan2(R[1][0], R[0][0]) * toD;
+  return { yaw: -yaw, pitch: -pitch, roll };
 }
 
 // ── Display ──
@@ -314,14 +335,27 @@ function loop() {
   frames++;
 
   if (matrices?.length > 0) {
-    view.classList.add('lock'); tag.textContent = 'FACE LOCK';
-    const raw = matrixToEuler(matrices[0].data);
+    view.classList.add('lock');
+    const R = rot(matrices[0].data);
+
+    if (!R0 && !capture) requestCenter();               // first lock: auto-centre
+    if (capture) {
+      capture.push(R);
+      tag.textContent = 'CENTERING';
+      if (capture.length >= CAPTURE_FRAMES) {
+        R0 = meanRotation(capture); capture = null;
+        cal.classList.add('flash'); setTimeout(() => cal.classList.remove('flash'), 500);
+      }
+      return;                                            // hold output while capturing
+    }
+    tag.textContent = 'FACE LOCK';
+
+    const raw = euler(mulTN(R0, R));
     const pose = {};
     for (const k of ["yaw", "pitch", "roll"]) {
       const f = filters[k];
-      pose[k] = (f ? f.filter(raw[k], now) : raw[k]) - offset[k];
+      pose[k] = f ? f.filter(raw[k], now) : raw[k];
     }
-    lastPose = pose;
     paintYaw(pose.yaw);
     nums.pitch.textContent = fmt(pose.pitch);
     nums.roll.textContent = fmt(pose.roll);

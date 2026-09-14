@@ -113,6 +113,7 @@ and launches the same app.
 python3 tools/ft_selftest.py     # FreeTrack byte layout
 python3 tools/test_handshake.py  # game-ID handshake
 python3 tools/test_certs.py      # certificate authority
+python3 tools/test_pose_math.py  # why CENTER subtracts a rotation, not angles
 python3 tools/e2e_test.py        # phone → server → game pipeline, http + https
 ```
 

@@ -72,6 +72,11 @@ Do not ask the owner to report back; they will initiate.
 - `cert.pem`/`key.pem` exist in public git history (commit `e8c97c4`);
   scrub before any buyer audit. A dead GitHub PAT was in `.git/config`, gone.
 - Assetto Corsa has **no FreeTrack toggle**; it reads TrackIR automatically.
+- **Axis crosstalk is geometry, not tracker noise.** A phone below the monitor
+  looks up at the head, so a pure yaw decomposes in camera Euler angles into
+  yaw + roll + pitch (25° tilt: 13.7° phantom roll). Centering therefore
+  stores the rest orientation R0 and measures every frame as R0ᵀ·R; angle
+  subtraction cannot fix this. `tools/test_pose_math.py` shows both.
 - Games with `since != V160` in `dll/games.csv` scramble their data; the
   handshake supplies the table. Pose writes stop at byte 92 so they never
   clobber the handshake tail.
