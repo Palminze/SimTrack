@@ -52,6 +52,10 @@ GAMES  bin/NPClient(.64).dll        → TrackIR titles (AC, iRacing, ACC)
 - http/https surface, wss pipeline, asset MIME + traversal, hostile input,
   recentre on disconnect — `tools/e2e_test.py` (31 checks).
 - GUI builds all cards (fake-Tk smoke run; a real bug was found this way once).
+- `helmet.py` draws a flat-shaded racing helmet on a tkinter canvas that
+  mirrors the driver (`tools/test_helmet.py`). If a real test shows an axis
+  moving the wrong way, flip the matching `YAW_SIGN / PITCH_SIGN / ROLL_SIGN`
+  at the top of that file — nothing else encodes the mirror convention.
 
 ## Not yet verified — the owner will run these
 

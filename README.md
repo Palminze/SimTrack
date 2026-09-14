@@ -25,7 +25,9 @@ your head. No hardware, no phone app, nothing else to install on the PC.
    - **Firewall** — "Allow SimTrack to communicate": tick *Private networks*
      and click *Allow*. Without this your phone can't reach the PC.
 
-A window opens with a QR code. Leave it open while you race.
+A window opens with a QR code. Leave it open while you race — the helmet in
+it mirrors your head once the phone is connected, so you can confirm every
+axis at a glance before launching a game.
 
 ## Connect the phone (one time, about a minute)
 

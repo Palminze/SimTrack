@@ -53,6 +53,7 @@ from aiohttp import web             # noqa: E402
 
 import certs                        # noqa: E402
 from freetrack import FreeTrack, register_client_dll, register_npclient   # noqa: E402
+from helmet import HelmetView       # noqa: E402
 
 # The packaged app has no console, so everything printed goes to a log file
 # testers can send back. Source runs keep printing to the terminal.
@@ -402,17 +403,23 @@ class SimTrackApp(tk.Tk):
         self._card_start("TRACKING")
         row2 = tk.Frame(self._card, bg=CARD)
         row2.pack(fill="x", padx=14, pady=(0, 12))
+        # The helmet mirrors the driver, so a glance confirms every axis;
+        # the numbers stack beside it.
+        self._helmet = HelmetView(row2, width=230, height=190, bg=INSET)
+        self._helmet.pack(side="left", padx=(0, 10))
+        stack = tk.Frame(row2, bg=CARD)
+        stack.pack(side="left", fill="both", expand=True)
         self._yaw_v   = tk.StringVar(value="+0.0°")
         self._pitch_v = tk.StringVar(value="+0.0°")
         self._roll_v  = tk.StringVar(value="+0.0°")
         for lbl, var in (("Yaw", self._yaw_v), ("Pitch", self._pitch_v),
                          ("Roll", self._roll_v)):
-            box = tk.Frame(row2, bg=INSET)
-            box.pack(side="left", expand=True, fill="x", padx=(0, 5))
+            box = tk.Frame(stack, bg=INSET)
+            box.pack(fill="x", pady=(0, 6))
             tk.Label(box, text=lbl, bg=INSET, fg=DIMTXT,
-                     font=(FONT, 8)).pack(pady=(7, 1))
+                     font=(FONT, 8)).pack(anchor="w", padx=10, pady=(6, 0))
             tk.Label(box, textvariable=var, bg=INSET, fg=WHITE,
-                     font=(MONO, 17, "bold")).pack(pady=(0, 7))
+                     font=(MONO, 17, "bold")).pack(anchor="w", padx=10, pady=(0, 6))
         self._card_end()
 
         # ── Games ─────────────────────────────────────────────────────────────
@@ -434,7 +441,7 @@ class SimTrackApp(tk.Tk):
         tk.Label(self._card, text="", bg=CARD).pack(pady=(0, 4))
         self._card_end()
 
-        self.geometry("580x600")
+        self.geometry("580x740")
 
     # ── health poll ──────────────────────────────────────────────────────────
     def _health(self):
@@ -472,6 +479,7 @@ class SimTrackApp(tk.Tk):
         self._yaw_v.set(f"{yaw:+.1f}°")
         self._pitch_v.set(f"{pitch:+.1f}°")
         self._roll_v.set(f"{roll:+.1f}°")
+        self._helmet.set_pose(yaw, pitch, roll)
         if n > 0:
             self._led.config(fg=GREEN)
             self._status.set("Phone connected  ·  tracking active")
