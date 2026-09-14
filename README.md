@@ -29,6 +29,10 @@ A window opens with a QR code. Leave it open while you race — the helmet in
 it mirrors your head once the phone is connected, so you can confirm every
 axis at a glance before launching a game.
 
+The window is rendered by Windows' built-in web view (the same engine as
+Edge). If that isn't available on a machine, SimTrack opens a simpler
+classic window instead; `SimTrack.exe --classic` forces it.
+
 ## Connect the phone (one time, about a minute)
 
 1. **Scan the QR code** with your phone's camera. A setup page opens.

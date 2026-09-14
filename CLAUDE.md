@@ -52,10 +52,18 @@ GAMES  bin/NPClient(.64).dll        → TrackIR titles (AC, iRacing, ACC)
 - http/https surface, wss pipeline, asset MIME + traversal, hostile input,
   recentre on disconnect — `tools/e2e_test.py` (31 checks).
 - GUI builds all cards (fake-Tk smoke run; a real bug was found this way once).
-- `helmet.py` draws a flat-shaded racing helmet on a tkinter canvas that
-  mirrors the driver (`tools/test_helmet.py`). If a real test shows an axis
-  moving the wrong way, flip the matching `YAW_SIGN / PITCH_SIGN / ROLL_SIGN`
-  at the top of that file — nothing else encodes the mirror convention.
+- **Desktop window is `desktop.html` in pywebview (Edge WebView2)** with a
+  Three.js helmet: smooth 96×64 shell, clearcoat paint, glossy smoked visor,
+  procedural studio env map, ACES. It polls `app_state()` / `qr_matrix()`
+  from `server_windows.py` at 30fps over the JS bridge (`tools/test_state.py`
+  guards that contract). `desktop.run()` returns False if pywebview or the
+  runtime is missing → the tkinter window (`helmet.py`, flat polygons) opens
+  instead; `--classic` forces it. Three.js r158 UMD is self-hosted in
+  `assets/three.min.js`.
+- Mirror convention lives in two places that must agree: `YAW_SIGN /
+  PITCH_SIGN / ROLL_SIGN` at the top of `desktop.html`'s script and of
+  `helmet.py` (both currently +1, −1, −1). Flip both if a real test shows an
+  axis moving the wrong way.
 
 ## Not yet verified — the owner will run these
 

@@ -54,6 +54,7 @@ from aiohttp import web             # noqa: E402
 import certs                        # noqa: E402
 from freetrack import FreeTrack, register_client_dll, register_npclient   # noqa: E402
 from helmet import HelmetView       # noqa: E402
+import desktop                      # noqa: E402
 
 # The packaged app has no console, so everything printed goes to a log file
 # testers can send back. Source runs keep printing to the terminal.
@@ -118,9 +119,11 @@ GAMES_CSV = os.path.join(BASE, "dll", "games.csv")
 
 udp_sock  = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 clients   = set()
-_ui_cb    = None          # set once the GUI exists
+_ui_cb    = None          # set once the classic GUI exists
 CA_PATH   = None          # set once certificates are issued
 server_error = None       # set if the server thread dies; shown in the GUI
+LAST      = {"pose": (0.0, 0.0, 0.0)}   # latest pose, for windows that poll
+MISSING_DLLS: list = []
 
 
 # ── FreeTrack shared memory ───────────────────────────────────────────────────
@@ -136,11 +139,11 @@ if freetrack.active:
                        ("TrackIR DLL", register_npclient(DLL_DIR))):
         print(f"[{label}] {'registered: ' + DLL_DIR if err is None else 'NOT registered: ' + err}")
 
-    _missing = [n for n in ("NPClient.dll", "NPClient64.dll",
-                            "freetrackclient.dll", "freetrackclient64.dll")
-                if not os.path.exists(os.path.join(DLL_DIR, n))]
-    if _missing:
-        print(f"[warn] missing from bin/: {', '.join(_missing)} — "
+    MISSING_DLLS[:] = [n for n in ("NPClient.dll", "NPClient64.dll",
+                                   "freetrackclient.dll", "freetrackclient64.dll")
+                       if not os.path.exists(os.path.join(DLL_DIR, n))]
+    if MISSING_DLLS:
+        print(f"[warn] missing from bin/: {', '.join(MISSING_DLLS)} — "
               f"games cannot connect until they exist")
 
     freetrack.start_game_watch(GAMES_CSV)
@@ -185,6 +188,7 @@ async def ws_handler(request):
                 if CONFIG["invert_roll"]:  roll  = -roll
 
                 _emit(yaw, pitch, roll)
+                LAST["pose"] = (yaw, pitch, roll)
 
                 # Relay to any other connected page (the Mac demo uses this)
                 for c in list(clients - {ws}):
@@ -204,6 +208,7 @@ async def ws_handler(request):
             # Phone gone: recentre rather than leave the game staring at the
             # last angle it received.
             _emit(0.0, 0.0, 0.0)
+            LAST["pose"] = (0.0, 0.0, 0.0)
         if _ui_cb:
             _ui_cb(0.0, 0.0, 0.0, len(clients))
         print(f"[-] {request.remote}  ({len(clients)} connected)")
@@ -300,7 +305,42 @@ def _server_thread():
         traceback.print_exc()
 
 
-# ── GUI ───────────────────────────────────────────────────────────────────────
+# ── State for whichever window is showing ─────────────────────────────────────
+def app_state():
+    """Everything a window needs, as plain data. Both UIs read this."""
+    if server_error:
+        status, level = f"Server failed — {server_error}", "error"
+    elif CA_PATH is None:
+        status, level = "Starting…", "idle"
+    elif clients:
+        status, level = "Phone connected · tracking active", "ok"
+    elif not freetrack.active:
+        status, level = f"No game output — {freetrack.error}", "warn"
+    elif freetrack.current_game:
+        status, level = f"{freetrack.current_game} connected — waiting for phone…", "warn"
+    else:
+        status, level = "Waiting for phone…", "idle"
+    return {
+        "status": status, "level": level,
+        "pose": list(LAST["pose"]), "clients": len(clients),
+        "game": freetrack.current_game,
+        "setup_url": SETUP_URL, "tracker_url": TRACKER_URL, "lan_ip": LAN_IP,
+        "opentrack_port": OPENTRACK_PORT, "missing_dlls": list(MISSING_DLLS),
+    }
+
+
+def qr_matrix():
+    """The setup URL as a QR module grid (rows of 0/1) for a page to draw."""
+    import qrcode
+    if LAN_IP == "localhost":
+        return []
+    qr = qrcode.QRCode(border=0, error_correction=qrcode.constants.ERROR_CORRECT_M)
+    qr.add_data(SETUP_URL)
+    qr.make(fit=True)
+    return [[1 if v else 0 for v in row] for row in qr.get_matrix()]
+
+
+# ── Classic GUI (tkinter) — fallback when the web view is unavailable ─────────
 # Same palette as the phone page: asphalt, warm off-white, one papaya accent.
 BG     = "#111315"
 CARD   = "#1a1d21"
@@ -489,9 +529,8 @@ class SimTrackApp(tk.Tk):
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    threading.Thread(target=_server_thread, daemon=True).start()
-
+def _run_classic():
+    global _ui_cb
     app = SimTrackApp()
 
     def _cb(yaw, pitch, roll, n):
@@ -499,3 +538,12 @@ if __name__ == "__main__":
 
     _ui_cb = _cb
     app.mainloop()
+
+
+if __name__ == "__main__":
+    threading.Thread(target=_server_thread, daemon=True).start()
+
+    # The web-view window (WebGL helmet) is the product; tkinter is the
+    # fallback that always opens. --classic forces the fallback.
+    if "--classic" in sys.argv or not desktop.run(app_state, qr_matrix, BASE):
+        _run_classic()

@@ -1,3 +1,4 @@
 aiohttp>=3.9.0
 cryptography>=42.0
 qrcode>=7.4
+pywebview>=5.0; sys_platform == "win32"

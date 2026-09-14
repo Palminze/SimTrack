@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimTrack</title>
+<style>
+  @font-face { font-family: "Chakra Petch"; font-weight: 500; font-style: normal;
+               src: url("./assets/fonts/ChakraPetch-500.woff2") format("woff2"); }
+  @font-face { font-family: "Chakra Petch"; font-weight: 700; font-style: normal;
+               src: url("./assets/fonts/ChakraPetch-700.woff2") format("woff2"); }
+  @font-face { font-family: "Chakra Petch"; font-weight: 700; font-style: italic;
+               src: url("./assets/fonts/ChakraPetch-700i.woff2") format("woff2"); }
+  @font-face { font-family: "Share Tech Mono"; font-weight: 400; font-style: normal;
+               src: url("./assets/fonts/ShareTechMono-400.woff2") format("woff2"); }
+  :root {
+    --ground: #111315; --panel: #1a1d21; --inset: #0b0d0f; --bezel: #2a2f36;
+    --ink: #f2f0ea; --steel: #8a9099; --papaya: #ff7a1a; --hot: #ff3b3b; --warn: #f5a623;
+    --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+    --mono: "Share Tech Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; user-select: none; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font: 500 14px/1.45 var(--display);
+    display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px;
+    overflow: hidden;
+  }
+  .lbl { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--steel); text-transform: uppercase; }
+
+  header { display: flex; align-items: stretch; height: 44px; background: var(--panel); flex: none; }
+  .brand {
+    background: var(--papaya); color: var(--ground);
+    font: italic 700 21px/44px var(--display); letter-spacing: .02em;
+    padding: 0 24px 0 16px;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  }
+  .brand span { color: #3a1a05; }
+  header .status { align-self: center; margin-left: 14px; color: var(--steel); font-size: 13px; }
+  header .status.error { color: var(--hot); }
+  header .status.warn { color: var(--warn); }
+  header .status.ok { color: var(--ink); }
+  .state {
+    margin-left: auto; align-self: center; margin-right: 12px;
+    font: 700 12px/1 var(--display); letter-spacing: .08em;
+    padding: 8px 10px; border: 2px solid var(--steel); color: var(--steel);
+  }
+  .state.ok { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+  .state.error { border-color: var(--hot); color: var(--hot); }
+
+  .card { background: var(--panel); padding: 12px 14px; flex: none; }
+  .card .lbl { display: block; margin-bottom: 8px; }
+
+  .connect { display: flex; gap: 16px; align-items: flex-start; }
+  #qr { width: 138px; height: 138px; background: #fff; flex: none; image-rendering: pixelated; }
+  .steps { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .step { display: flex; gap: 10px; align-items: baseline; }
+  .step b { color: var(--papaya); font: 700 13px/1 var(--mono); }
+  .urls { margin-top: 8px; font: 12px/1.6 var(--mono); color: var(--steel); }
+  .urls span { color: var(--ink); }
+
+  .track { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .stage { position: relative; flex: 1 1 auto; min-height: 260px; background: var(--inset); overflow: hidden; }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .readouts { position: absolute; left: 14px; bottom: 12px; display: flex; gap: 22px; align-items: baseline; }
+  .readouts .r { display: flex; flex-direction: column; }
+  .readouts .num { font: 34px/1 var(--mono); color: var(--ink); }
+  .readouts .r.big .num { font-size: 50px; }
+  .readouts .unit { font-size: .5em; color: var(--steel); }
+  .game { position: absolute; right: 14px; top: 12px; font: 700 12px/1 var(--display); letter-spacing: .06em; color: var(--steel); text-transform: uppercase; }
+  .game.on { color: var(--papaya); }
+
+  .games { display: flex; flex-direction: column; gap: 4px; }
+  .grow { display: flex; gap: 10px; align-items: baseline; }
+  .grow i { font-style: normal; font-weight: 700; width: 14px; color: var(--papaya); }
+  .grow i.opt { color: var(--warn); }
+  .grow b { min-width: 230px; }
+  .grow span { color: var(--steel); font-size: 13px; }
+  .missing { color: var(--warn); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">SIM<span>TRACK</span></div>
+  <div class="status" id="status">Starting…</div>
+  <div class="state" id="state">WAITING</div>
+</header>
+
+<div class="card">
+  <span class="lbl">Connect your phone</span>
+  <div class="connect">
+    <canvas id="qr" width="138" height="138"></canvas>
+    <div class="steps">
+      <div class="step"><b>1</b><span>Scan this code with your phone's camera</span></div>
+      <div class="step"><b>2</b><span>Install the SimTrack certificate (one time)</span></div>
+      <div class="step"><b>3</b><span>Open the tracker link on that page</span></div>
+      <div class="urls">setup &nbsp;<span id="setup-url">…</span><br>tracker <span id="tracker-url">…</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card track">
+  <span class="lbl">Tracking</span>
+  <div class="stage" id="stage">
+    <div class="game" id="game"></div>
+    <div class="readouts">
+      <div class="r big"><span class="lbl">Yaw</span><span class="num" id="yaw">+0.0<span class="unit">°</span></span></div>
+      <div class="r"><span class="lbl">Pitch</span><span class="num" id="pitch">+0.0<span class="unit">°</span></span></div>
+      <div class="r"><span class="lbl">Roll</span><span class="num" id="roll">+0.0<span class="unit">°</span></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <span class="lbl">Games</span>
+  <div class="games">
+    <div class="grow"><i>✓</i><b>Assetto Corsa · iRacing · ACC</b><span>built in — start SimTrack, then the game</span></div>
+    <div class="grow"><i>✓</i><b>ETS2 · ATS · BeamNG</b><span>built in — enable FreeTrack in game settings</span></div>
+    <div class="grow"><i class="opt">⚙</i><b>Anything via OpenTrack</b><span id="ot">optional — UDP input</span></div>
+  </div>
+  <div class="missing" id="missing" hidden></div>
+</div>
+
+<script src="./assets/three.min.js"></script>
+<script>
+// ── Helmet: smooth shaded, car-paint shell, glossy smoked visor, env reflections ──
+const YAW_SIGN = 1, PITCH_SIGN = -1, ROLL_SIGN = -1;   // mirror of the driver
+
+function shape(v, r) {
+  // Sphere point → helmet: taller crown, flatter back, chin bar forward.
+  let x = v.x, y = v.y, z = v.z;
+  const len = Math.hypot(x, y, z) || 1; x /= len; y /= len; z /= len;
+  const z0 = z;
+  y *= 1.06;
+  z *= z > 0 ? 1.10 : 0.96;
+  if (y < -0.2 && z > 0) {
+    const t = Math.min(1, (-0.2 - y) / 0.45);
+    z += 0.38 * t * Math.sqrt(Math.max(0, z0));
+    y -= 0.06 * t;
+  }
+  v.set(x * r, y * r, z * r);
+}
+function deform(geo, r) {
+  const p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); shape(v, r); p.setXYZ(i, v.x, v.y, v.z); }
+  p.needsUpdate = true; geo.computeVertexNormals(); return geo;
+}
+
+function studioEnvironment(renderer) {
+  // Procedural equirect: soft grey sky, dark floor, two softboxes -- gives paint
+  // and visor something to reflect without shipping an HDR.
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const g = c.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, 256);
+  sky.addColorStop(0, '#5a6068'); sky.addColorStop(0.5, '#2a2f36'); sky.addColorStop(0.52, '#15181c'); sky.addColorStop(1, '#0a0c0e');
+  g.fillStyle = sky; g.fillRect(0, 0, 512, 256);
+  for (const [x, w] of [[70, 110], [330, 140]]) {
+    const box = g.createLinearGradient(x, 0, x + w, 0);
+    box.addColorStop(0, 'rgba(255,250,240,0)'); box.addColorStop(0.5, 'rgba(255,250,240,0.95)'); box.addColorStop(1, 'rgba(255,250,240,0)');
+    g.fillStyle = box; g.fillRect(x, 40, w, 70);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping; tex.colorSpace = THREE.SRGBColorSpace;
+  const pm = new THREE.PMREMGenerator(renderer); pm.compileEquirectangularShader();
+  const env = pm.fromEquirectangular(tex).texture; pm.dispose(); tex.dispose();
+  return env;
+}
+
+function buildHelmet(clip) {
+  const group = new THREE.Group();
+  const paint = (color) => new THREE.MeshPhysicalMaterial({
+    color, roughness: 0.32, metalness: 0.08, clearcoat: 1.0, clearcoatRoughness: 0.08,
+    clippingPlanes: clip, side: THREE.FrontSide });
+
+  group.add(new THREE.Mesh(deform(new THREE.SphereGeometry(1, 96, 64), 1.0), paint('#ff7a1a')));
+
+  // inner shell: what you see through the neck opening
+  group.add(new THREE.Mesh(deform(new THREE.SphereGeometry(1, 48, 32), 0.975),
+    new THREE.MeshStandardMaterial({ color: '#0b0d0f', roughness: 1, side: THREE.BackSide, clippingPlanes: clip })));
+
+  // crown stripe: a meridian band rotated so it runs back → crown → front
+  const stripe = new THREE.SphereGeometry(1, 12, 96, Math.PI / 2 - 0.075, 0.15, 0.45, Math.PI - 0.80);
+  stripe.rotateX(-Math.PI / 2);
+  group.add(new THREE.Mesh(deform(stripe, 1.006), paint('#f2f0ea')));
+
+  // visor frame then visor
+  const frame = new THREE.SphereGeometry(1, 64, 24, Math.PI / 2 - 1.28, 2.56, 1.31, 0.66);
+  group.add(new THREE.Mesh(deform(frame, 1.012),
+    new THREE.MeshStandardMaterial({ color: '#14171a', roughness: 0.85, metalness: 0.1, clippingPlanes: clip })));
+  const visor = new THREE.SphereGeometry(1, 64, 24, Math.PI / 2 - 1.20, 2.40, 1.37, 0.53);
+  group.add(new THREE.Mesh(deform(visor, 1.022), new THREE.MeshPhysicalMaterial({
+    color: '#0a0c0f', roughness: 0.12, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.03,
+    envMapIntensity: 1.6, clippingPlanes: clip })));
+
+  // chin vent
+  const vent = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.075, 0.12),
+    new THREE.MeshStandardMaterial({ color: '#08090b', roughness: 0.95 }));
+  vent.position.set(0, -0.57, 1.14);
+  group.add(vent);
+  return group;
+}
+
+function groundShadow() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const rad = g.createRadialGradient(128, 128, 10, 128, 128, 120);
+  rad.addColorStop(0, 'rgba(0,0,0,0.55)'); rad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = rad; g.fillRect(0, 0, 256, 256);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = -1.02; return m;
+}
+
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.localClippingEnabled = true;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.environment = studioEnvironment(renderer);
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+camera.position.set(0, 0.12, 5.6); camera.lookAt(0, -0.02, 0);   // room for the readouts at bottom-left
+
+const key = new THREE.DirectionalLight('#fff6ea', 2.2); key.position.set(-2.5, 3.2, 3); scene.add(key);
+const fill = new THREE.DirectionalLight('#c9d3ff', 0.55); fill.position.set(3, 0.8, 2); scene.add(fill);
+const rim = new THREE.DirectionalLight('#ffb070', 1.1); rim.position.set(0.5, 2, -3); scene.add(rim);
+
+const clip = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.80)];   // open neck
+const helmet = buildHelmet(clip);
+helmet.position.set(0.55, 0.22, 0);                                // sits right of the readouts
+const shadow = groundShadow(); shadow.position.x = 0.55; shadow.position.y = -0.80;
+scene.add(helmet); scene.add(shadow);
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+const target = new THREE.Quaternion(), e = new THREE.Euler();
+let pose = [0, 0, 0];
+function frame() {
+  requestAnimationFrame(frame);
+  e.set(THREE.MathUtils.degToRad(PITCH_SIGN * pose[1]), THREE.MathUtils.degToRad(YAW_SIGN * pose[0]),
+        THREE.MathUtils.degToRad(ROLL_SIGN * pose[2]), 'YXZ');
+  target.setFromEuler(e);
+  helmet.quaternion.slerp(target, 0.35);
+  renderer.render(scene, camera);
+}
+frame();
+
+// ── State from Python (polled; the bridge is promise-based) ──
+const $ = id => document.getElementById(id);
+const fmt = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '<span class="unit">°</span>';
+const STATE_TEXT = { ok: 'LINKED', warn: 'WAITING', idle: 'WAITING', error: 'ERROR' };
+
+function drawQR(matrix) {
+  const c = $('qr'), n = matrix.length, cell = Math.floor(c.width / (n + 4)), off = Math.floor((c.width - cell * n) / 2);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#000';
+  matrix.forEach((row, y) => row.forEach((v, x) => { if (v) g.fillRect(off + x * cell, off + y * cell, cell, cell); }));
+}
+
+function apply(s) {
+  pose = s.pose || [0, 0, 0];
+  $('yaw').innerHTML = fmt(pose[0]); $('pitch').innerHTML = fmt(pose[1]); $('roll').innerHTML = fmt(pose[2]);
+  $('status').textContent = s.status; $('status').className = 'status ' + s.level;
+  $('state').textContent = STATE_TEXT[s.level] || 'WAITING'; $('state').className = 'state ' + s.level;
+  $('setup-url').textContent = s.setup_url; $('tracker-url').textContent = s.tracker_url;
+  $('ot').textContent = `optional — UDP input, port ${s.opentrack_port}`;
+  const g = $('game'); g.textContent = s.game ? `${s.game}` : ''; g.className = 'game' + (s.game ? ' on' : '');
+  const m = $('missing'); m.hidden = !(s.missing_dlls && s.missing_dlls.length);
+  if (!m.hidden) m.textContent = `Missing from bin/: ${s.missing_dlls.join(', ')} — games cannot connect until they exist.`;
+}
+
+async function boot() {
+  const api = window.pywebview.api;
+  try { drawQR(await api.qr()); } catch (err) {}
+  const tick = async () => { try { apply(await api.state()); } catch (err) {} };
+  await tick(); setInterval(tick, 33);
+}
+if (window.pywebview && window.pywebview.api) boot(); else window.addEventListener('pywebviewready', boot);
+</script>
+</body>
+</html>

@@ -29,7 +29,11 @@ jobs:
           python tools/test_certs.py
           python tools/test_pose_math.py
           python tools/test_helmet.py
+          python tools/test_state.py
           python tools/e2e_test.py
+
+      - name: Web view host imports on Windows
+        run: python -c "import webview, clr; print('pywebview', webview.__version__ if hasattr(webview, '__version__') else 'ok')"
 
       - name: Real-tkinter smoke test
         # Windows runners have a desktop session, so the actual GUI can be
