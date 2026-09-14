@@ -61,6 +61,19 @@ check("polygons returned far-to-near", len(polys) > 0 and all(isinstance(p[1], s
 colours = {fill for _p, fill, _k in polys}
 check("shading varies across the shell", len(colours) > 6, f"{len(colours)} distinct shades")
 
+print("\nNo widget subclass shadows tkinter internals")
+# tkinter keeps its Tcl path in self._w and its interpreter in self.tk; a
+# subclass assigning either breaks every later widget call with a baffling
+# "invalid command name" error -- exactly what shipped once.
+import re  # noqa: E402
+reserved = ("_w", "tk", "master", "children", "widgetName", "_name")
+for fname in ("helmet.py", "server_windows.py"):
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), fname)
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    hits = [r for r in reserved if re.search(rf"self\.{r}\b\s*(,\s*self\.\w+\s*)*=[^=]", src)]
+    check(f"{fname} assigns none of {', '.join(reserved)}", not hits, f"assigns {hits}" if hits else "")
+
 print()
 if fails:
     print(f"{len(fails)} FAILED: {', '.join(fails)}")

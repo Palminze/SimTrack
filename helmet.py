@@ -115,7 +115,7 @@ class HelmetView(tk.Canvas):
     def __init__(self, master, width=220, height=180, bg="#0b0d0f", **kw):
         super().__init__(master, width=width, height=height, bg=bg,
                          highlightthickness=0, **kw)
-        self._w, self._h = width, height
+        self._size_w, self._size_h = width, height
         self._pose = (0.0, 0.0, 0.0)
         self._shown = None
         self._draw()
@@ -131,6 +131,6 @@ class HelmetView(tk.Canvas):
 
     def _draw(self):
         self.delete("all")
-        for pts, fill, _kind in render(*self._pose, self._w, self._h):
+        for pts, fill, _kind in render(*self._pose, self._size_w, self._size_h):
             self.create_polygon(pts, fill=fill, outline=OUTLINE, width=1)
         self._shown = self._pose

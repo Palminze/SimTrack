@@ -22,6 +22,22 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt pyinstaller
 
+      - name: Test suites
+        run: |
+          python tools/ft_selftest.py
+          python tools/test_handshake.py
+          python tools/test_certs.py
+          python tools/test_pose_math.py
+          python tools/test_helmet.py
+          python tools/e2e_test.py
+
+      - name: Real-tkinter smoke test
+        # Windows runners have a desktop session, so the actual GUI can be
+        # constructed here -- the only place a shadowed tkinter internal or a
+        # bad widget option shows up before a tester's screen.
+        run: |
+          python -c "import tkinter as tk, server_windows as sw; app = sw.SimTrackApp(); app.update_data(12.0, -3.0, 1.5, 1); app._helmet._draw(); app.update(); app.destroy(); print('GUI constructed, drew a pose, closed cleanly')"
+
       - name: Build SimTrack.exe
         run: pyinstaller SimTrack.spec --noconfirm
 
