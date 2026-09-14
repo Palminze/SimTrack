@@ -1,0 +1,24 @@
+@font-face { font-family: "Chakra Petch"; font-weight: 700; src: url("fonts/ChakraPetch-700.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-style: italic; src: url("fonts/ChakraPetch-700i.woff2") format("woff2"); font-display: swap; }
+:root {
+  --ground: #111315; --panel: #1a1d21; --ink: #f2f0ea; --steel: #8a9099; --papaya: #ff7a1a; --bezel: #2a2f36;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.65 "Segoe UI", system-ui, sans-serif; }
+nav { display: flex; align-items: stretch; height: 52px; background: var(--panel); }
+.brand { background: var(--papaya); color: var(--ground); font: italic 700 22px/52px var(--display); letter-spacing: .02em; padding: 0 26px 0 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); text-decoration: none; }
+.brand span { color: #3a1a05; }
+nav .what { align-self: center; margin-left: 14px; color: var(--steel); font: 500 14px var(--display); letter-spacing: .04em; text-transform: uppercase; }
+main { max-width: 68ch; margin: 0 auto; padding: 36px 20px 80px; }
+h1 { font: 700 34px/1.15 var(--display); margin: 0 0 6px; }
+h2 { font: 700 19px/1.2 var(--display); margin: 28px 0 8px; }
+p { margin: 0 0 12px; }
+.meta { color: var(--steel); font-size: 14.5px; }
+a { color: var(--papaya); }
+a:focus-visible { outline: 2px solid var(--papaya); outline-offset: 2px; }
+ul { padding-left: 20px; }
+li { margin: 0 0 8px; }
+li::marker { color: var(--papaya); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: #0b0d0f; padding: 1px 5px; border-radius: 3px; }
+.back { margin-top: 36px; }

@@ -1,410 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SimTrack — Free head tracking for sim racing</title>
-  <meta name="description" content="Turn your phone into a head tracker for sim racing. Free, no app needed, works with Assetto Corsa, ETS2, BeamNG and more.">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimTrack — your phone is a head tracker</title>
+<meta name="description" content="Head tracking for sim racing from the phone you already own. No app, no OpenTrack, no hardware. Works with Assetto Corsa, iRacing, ETS2 and any game that supports TrackIR or FreeTrack.">
+<meta property="og:title" content="SimTrack — your phone is a head tracker">
+<meta property="og:description" content="Prop your phone on the monitor. Your in-game view follows your head. Nothing else to install.">
+<meta property="og:image" content="img/desktop.png">
+<meta name="theme-color" content="#111315">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  @font-face { font-family: "Chakra Petch"; font-weight: 500; src: url("fonts/ChakraPetch-500.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Chakra Petch"; font-weight: 700; src: url("fonts/ChakraPetch-700.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Chakra Petch"; font-weight: 700; font-style: italic; src: url("fonts/ChakraPetch-700i.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Share Tech Mono"; font-weight: 400; src: url("fonts/ShareTechMono-400.woff2") format("woff2"); font-display: swap; }
 
-    :root {
-      --bg:     #0a0a0a;
-      --bg2:    #111111;
-      --border: #1e1e1e;
-      --green:  #00d96c;
-      --amber:  #f5a623;
-      --text:   #e0e0e0;
-      --dim:    #666;
-      --dimmer: #333;
-    }
+  /* The product's own world: one deliberate dark theme, painted explicitly. */
+  :root {
+    --ground: #111315; --panel: #1a1d21; --inset: #0b0d0f; --bezel: #2a2f36;
+    --ink: #f2f0ea; --steel: #8a9099; --papaya: #ff7a1a; --papaya-deep: #c25a0a; --warn: #f5a623;
+    --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    --mono: "Share Tech Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.6 var(--body); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+  h2 { font-size: 30px; font-weight: 700; }
+  h3 { font-size: 19px; font-weight: 700; }
+  p { margin: 0 0 14px; }
+  a { color: var(--papaya); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--papaya); outline-offset: 3px; }
+  .lbl { font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--steel); }
 
-    html { scroll-behavior: smooth; }
+  /* nav */
+  nav { display: flex; align-items: stretch; height: 52px; background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  nav .in { display: flex; align-items: stretch; width: 100%; max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  .brand { background: var(--papaya); color: var(--ground); font: italic 700 22px/52px var(--display); letter-spacing: .02em; padding: 0 26px 0 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); text-decoration: none; }
+  .brand span { color: #3a1a05; }
+  nav .links { margin-left: auto; display: flex; gap: 22px; align-items: center; font: 500 14px var(--display); letter-spacing: .04em; text-transform: uppercase; }
+  nav .links a { color: var(--steel); text-decoration: none; }
+  nav .links a.buy { color: var(--papaya); }
+  @media (max-width: 640px) { nav .links a:not(.buy) { display: none; } }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      line-height: 1.6;
-    }
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; padding: 64px 0 56px; }
+  @media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding: 40px 0 36px; } }
+  .hero h1 { font-size: clamp(38px, 6vw, 62px); font-weight: 700; }
+  .hero h1 em { font-style: italic; color: var(--papaya); }
+  .hero .lead { font-size: 19px; color: var(--steel); margin: 16px 0 24px; max-width: 44ch; }
+  .hero .ea { display: inline-block; margin-bottom: 14px; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .wheelbtn {
+    display: inline-block; text-decoration: none; cursor: pointer;
+    background: var(--panel); color: var(--papaya);
+    border: 2px solid var(--bezel); border-radius: 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 0 #000;
+    padding: 14px 22px; font: 700 18px/1 var(--display); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .wheelbtn.primary { background: var(--papaya); color: var(--ground); border-color: var(--papaya-deep); }
+  .wheelbtn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+  .price-tag { font: 15px var(--body); color: var(--steel); }
+  .price-tag b { font: 22px var(--mono); color: var(--ink); }
+  .shot { background: var(--inset); padding: 10px; border: 1px solid var(--bezel); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot .cap { font: 12px var(--mono); color: var(--steel); padding: 8px 4px 0; }
 
-    a { color: var(--green); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  section { padding: 56px 0 24px; border-top: 1px solid var(--bezel); }
+  section .lbl { display: block; margin-bottom: 8px; }
+  .sub { color: var(--steel); max-width: 60ch; margin: 8px 0 26px; }
 
-    /* ── Nav ── */
-    nav {
-      position: sticky; top: 0;
-      background: rgba(10,10,10,0.9);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 40px;
-      display: flex; align-items: center; justify-content: space-between;
-      height: 56px;
-      z-index: 100;
-    }
-    .nav-logo { font-weight: 700; font-size: 16px; color: #fff; }
-    .nav-links { display: flex; gap: 24px; }
-    .nav-links a { color: var(--dim); font-size: 14px; }
-    .nav-links a:hover { color: var(--text); text-decoration: none; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+  .step { background: var(--panel); padding: 18px 18px 20px; }
+  .step b { display: block; font: 700 28px/1 var(--mono); color: var(--papaya); margin-bottom: 10px; }
+  .step p { margin: 6px 0 0; color: var(--steel); font-size: 15.5px; }
 
-    /* ── Hero ── */
-    .hero {
-      text-align: center;
-      padding: 100px 24px 80px;
-      max-width: 720px;
-      margin: 0 auto;
-    }
-    .badge {
-      display: inline-block;
-      background: rgba(0,217,108,0.1);
-      border: 1px solid rgba(0,217,108,0.25);
-      color: var(--green);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 20px;
-      margin-bottom: 24px;
-    }
-    h1 {
-      font-size: clamp(36px, 6vw, 64px);
-      font-weight: 800;
-      letter-spacing: -1.5px;
-      line-height: 1.1;
-      color: #fff;
-      margin-bottom: 20px;
-    }
-    h1 span { color: var(--green); }
-    .hero-sub {
-      font-size: 18px;
-      color: var(--dim);
-      max-width: 520px;
-      margin: 0 auto 40px;
-    }
-    .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .btn-primary {
-      background: var(--green);
-      color: #000;
-      font-weight: 700;
-      font-size: 15px;
-      padding: 12px 28px;
-      border-radius: 10px;
-      transition: opacity 0.15s;
-    }
-    .btn-primary:hover { opacity: 0.85; text-decoration: none; }
-    .btn-secondary {
-      background: var(--bg2);
-      color: var(--text);
-      font-weight: 600;
-      font-size: 15px;
-      padding: 12px 28px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      transition: border-color 0.15s;
-    }
-    .btn-secondary:hover { border-color: #444; text-decoration: none; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; }
+  @media (max-width: 800px) { .two { grid-template-columns: 1fr; } }
+  .two ul { margin: 0; padding-left: 20px; }
+  .two li { margin: 0 0 8px; }
+  li::marker { color: var(--papaya); }
 
-    /* ── Stat bar ── */
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      background: var(--bg2);
-    }
-    .stat {
-      flex: 1;
-      max-width: 200px;
-      text-align: center;
-      padding: 28px 16px;
-      border-right: 1px solid var(--border);
-    }
-    .stat:last-child { border-right: none; }
-    .stat .num { font-size: 28px; font-weight: 800; color: var(--green); }
-    .stat .lbl { font-size: 12px; color: var(--dim); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 720px) { .games { grid-template-columns: 1fr; } }
+  .tier { background: var(--panel); padding: 16px 18px 18px; }
+  .tier h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tier h3 i { font-style: normal; color: var(--papaya); }
+  .tier.expect h3 i { color: var(--steel); }
+  .tier.ot h3 i { color: var(--warn); }
+  .tier ul { margin: 0; padding-left: 18px; }
+  .tier li { margin: 0 0 4px; }
+  .tier .how { color: var(--steel); font-size: 14.5px; margin: 10px 0 0; }
 
-    /* ── Sections ── */
-    section { padding: 80px 24px; max-width: 900px; margin: 0 auto; }
-    h2 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 8px; letter-spacing: -0.5px; }
-    .section-sub { color: var(--dim); font-size: 15px; margin-bottom: 40px; }
+  .pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+  @media (max-width: 800px) { .pricing { grid-template-columns: 1fr; } }
+  .pricebox { background: var(--panel); padding: 22px 24px 24px; border-top: 3px solid var(--papaya); }
+  .pricebox .big { font: 54px/1 var(--mono); }
+  .pricebox .big small { font: 16px var(--body); color: var(--steel); margin-left: 8px; }
+  .pricebox ul { margin: 16px 0 20px; padding-left: 20px; }
+  .pricebox li { margin: 0 0 6px; }
+  .pricebox .fine { font-size: 13.5px; color: var(--steel); margin: 12px 0 0; }
 
-    /* ── Steps ── */
-    .steps { display: flex; flex-direction: column; gap: 12px; }
-    .step {
-      display: flex; gap: 20px; align-items: flex-start;
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
-    }
-    .step-num {
-      width: 32px; height: 32px; flex-shrink: 0;
-      border-radius: 50%;
-      background: rgba(0,217,108,0.12);
-      border: 1px solid rgba(0,217,108,0.25);
-      color: var(--green);
-      font-weight: 700; font-size: 14px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .step-body h3 { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; }
-    .step-body p  { font-size: 14px; color: var(--dim); }
-    .step-body code {
-      background: #1a1a1a;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 2px 7px;
-      font-size: 13px;
-      color: #aaa;
-      font-family: 'Consolas', monospace;
-    }
+  details { border-top: 1px solid var(--bezel); }
+  details:last-of-type { border-bottom: 1px solid var(--bezel); }
+  summary { cursor: pointer; list-style: none; padding: 16px 0; font: 600 18px var(--display); display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--papaya); font: 700 22px/1 var(--mono); }
+  details[open] summary::after { content: "−"; }
+  details p { margin: 0 0 16px; color: var(--steel); max-width: 70ch; }
 
-    /* ── Comparison table ── */
-    .table-wrap { overflow-x: auto; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    th {
-      text-align: left;
-      padding: 10px 16px;
-      color: var(--dim);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      border-bottom: 1px solid var(--border);
-    }
-    td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #161616;
-      color: var(--text);
-    }
-    tr:last-child td { border-bottom: none; }
-    td:first-child { color: #fff; font-weight: 600; }
-    .yes { color: var(--green); font-weight: 600; }
-    .no  { color: var(--dimmer); }
-    .row-simtrack { background: rgba(0,217,108,0.04); }
-
-    /* ── Game compat ── */
-    .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-    .game {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 18px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .game-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    }
-    .game-dot.green { background: var(--green); box-shadow: 0 0 6px rgba(0,217,108,0.5); }
-    .game-dot.amber { background: var(--amber); box-shadow: 0 0 6px rgba(245,166,35,0.4); }
-    .game-name { font-size: 14px; font-weight: 600; color: #fff; }
-    .game-note { font-size: 12px; color: var(--dim); margin-top: 1px; }
-
-    /* ── Code block ── */
-    pre {
-      background: #0d0d0d;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px 24px;
-      font-size: 13px;
-      font-family: 'Consolas', 'SF Mono', monospace;
-      color: #aaa;
-      overflow-x: auto;
-      line-height: 1.7;
-    }
-    pre .comment { color: #3a3a3a; }
-    pre .green   { color: var(--green); }
-
-    /* ── Footer ── */
-    footer {
-      border-top: 1px solid var(--border);
-      text-align: center;
-      padding: 40px 24px;
-      color: var(--dimmer);
-      font-size: 13px;
-    }
-    footer a { color: var(--dim); }
-
-    @media (max-width: 600px) {
-      nav { padding: 0 20px; }
-      .nav-links { gap: 14px; }
-      .stats { flex-wrap: wrap; }
-      .stat { min-width: 50%; border-right: none; border-bottom: 1px solid var(--border); }
-    }
-  </style>
+  footer { padding: 40px 0 60px; border-top: 1px solid var(--bezel); color: var(--steel); font-size: 14.5px; }
+  footer .row { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: baseline; }
+  footer a { color: var(--steel); }
+  footer .brand { font-size: 16px; line-height: 36px; padding: 0 20px 0 12px; }
+  .privacy { border-left: 3px solid var(--papaya); padding: 6px 14px; color: var(--steel); margin: 24px 0 0; }
+</style>
 </head>
 <body>
 
-<nav>
-  <span class="nav-logo">SimTrack</span>
-  <div class="nav-links">
-    <a href="#setup">Setup</a>
-    <a href="#games">Games</a>
-    <a href="https://github.com/Palminze/simtrack">GitHub</a>
+<nav><div class="in">
+  <a class="brand" href="#">SIM<span>TRACK</span></a>
+  <div class="links">
+    <a href="#how">How it works</a><a href="#games">Games</a><a href="#faq">FAQ</a>
+    <a class="buy" href="#buy">Buy · €14.99</a>
   </div>
-</nav>
+</div></nav>
 
-<!-- Hero -->
+<div class="wrap">
 <div class="hero">
-  <div class="badge">Open Source · Free Forever</div>
-  <h1>Head tracking for sim racing.<br><span>No hardware needed.</span></h1>
-  <p class="hero-sub">
-    Use your phone's front camera as a head tracker.
-    Prop it on your monitor, open a URL, and your in-game view follows your head.
-  </p>
-  <div class="cta-row">
-    <a class="btn-primary" href="https://github.com/Palminze/simtrack/releases/latest/download/simtrack.zip">
-      Download for Windows
-    </a>
-    <a class="btn-secondary" href="https://github.com/Palminze/simtrack">
-      View on GitHub
-    </a>
+  <div>
+    <span class="lbl ea">Early access · Windows · iPhone &amp; Android</span>
+    <h1>Your phone is a <em>head tracker.</em></h1>
+    <p class="lead">Prop it on the monitor. Open a link. Your in-game view follows your head — into the corner, at the mirror, over the shoulder. Nothing else to install on the phone or the PC.</p>
+    <div class="cta">
+      <a class="wheelbtn primary buy-link" href="#buy">Get SimTrack</a>
+      <span class="price-tag"><b>€14.99</b> founder's price · 14-day refund</span>
+    </div>
   </div>
+  <div class="shot"><img src="img/desktop.png" alt="The SimTrack window on the PC: QR code to connect the phone, and a 3D helmet that mirrors the driver's head, with yaw, pitch and roll readouts." width="640" height="880"><div class="cap">the PC window · the helmet turns with your head</div></div>
 </div>
 
-<!-- Stats -->
-<div class="stats">
-  <div class="stat"><div class="num">Free</div><div class="lbl">No subscription</div></div>
-  <div class="stat"><div class="num">~30ms</div><div class="lbl">Latency</div></div>
-  <div class="stat"><div class="num">0</div><div class="lbl">App installs</div></div>
-  <div class="stat"><div class="num">6+</div><div class="lbl">Supported games</div></div>
-</div>
-
-<!-- Setup -->
-<section id="setup">
-  <h2>Get started in 5 minutes</h2>
-  <p class="section-sub">Windows 10/11 · Python required · iPhone or Android</p>
+<section id="how">
+  <span class="lbl">How it works</span>
+  <h2>Three steps, one of them once</h2>
+  <p class="sub">The face tracking runs in your phone's browser. Three angles a frame travel over your own WiFi to the PC, which hands them to the game the same way TrackIR or FreeTrack hardware would.</p>
   <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <h3>Install Python</h3>
-        <p>Download from <a href="https://python.org/downloads">python.org</a>. Check <strong>"Add Python to PATH"</strong> during install.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <h3>Download SimTrack</h3>
-        <p>Download and extract the zip, then double-click <code>start.bat</code>. Dependencies install automatically on first run.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <h3>Open on your phone</h3>
-        <p>The SimTrack window shows a URL — open it in <strong>Safari (iPhone)</strong> or <strong>Chrome (Android)</strong> on the same WiFi. Allow camera access.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h3>Enable in game</h3>
-        <p>In your game settings set head tracking to <strong>FreeTrack</strong>. Start SimTrack before launching the game.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">5</div>
-      <div class="step-body">
-        <h3>Calibrate</h3>
-        <p>Sit in your normal position, look straight ahead, tap <strong>Calibrate</strong> on the phone page. Done.</p>
-      </div>
-    </div>
+    <div class="step"><b>1</b><h3>Run SimTrack on the PC</h3><p>Unzip, double-click. A window opens with a QR code.</p></div>
+    <div class="step"><b>2</b><h3>Scan it, trust it — once</h3><p>Your phone installs a small certificate so its camera is allowed to work over your local network. About a minute, never again.</p></div>
+    <div class="step"><b>3</b><h3>Prop the phone, start the game</h3><p>Tap Center while looking straight ahead. Drive. Games pick it up automatically.</p></div>
   </div>
 </section>
 
-<!-- Games -->
-<section id="games">
-  <h2>Game compatibility</h2>
-  <p class="section-sub">Works out of the box for most titles. TrackIR-only games need OpenTrack as a bridge.</p>
-  <div class="games">
-    <div class="game"><div class="game-dot green"></div><div><div class="game-name">Assetto Corsa</div><div class="game-note">FreeTrack — works instantly</div></div></div>
-    <div class="game"><div class="game-dot green"></div><div><div class="game-name">BeamNG.drive</div><div class="game-note">FreeTrack — works instantly</div></div></div>
-    <div class="game"><div class="game-dot green"></div><div><div class="game-name">Euro Truck Simulator 2</div><div class="game-note">FreeTrack — works instantly</div></div></div>
-    <div class="game"><div class="game-dot green"></div><div><div class="game-name">American Truck Simulator</div><div class="game-note">FreeTrack — works instantly</div></div></div>
-    <div class="game"><div class="game-dot amber"></div><div><div class="game-name">iRacing</div><div class="game-note">Needs OpenTrack (UDP 4242)</div></div></div>
-    <div class="game"><div class="game-dot amber"></div><div><div class="game-name">Assetto Corsa Competizione</div><div class="game-note">Needs OpenTrack (UDP 4242)</div></div></div>
-    <div class="game"><div class="game-dot amber"></div><div><div class="game-name">Dirt Rally 2.0</div><div class="game-note">Needs OpenTrack (UDP 4242)</div></div></div>
-    <div class="game"><div class="game-dot amber"></div><div><div class="game-name">rFactor 2</div><div class="game-note">Needs OpenTrack (UDP 4242)</div></div></div>
-  </div>
-</section>
-
-<!-- Comparison -->
-<section id="compare">
-  <h2>How it compares</h2>
-  <p class="section-sub">SimTrack vs the alternatives</p>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Solution</th>
-          <th>Cost</th>
-          <th>Setup</th>
-          <th>Accuracy</th>
-          <th>Latency</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="row-simtrack">
-          <td>SimTrack</td>
-          <td class="yes">Free</td>
-          <td>Browser URL</td>
-          <td>Good</td>
-          <td>~30–80ms</td>
-        </tr>
-        <tr>
-          <td>SmoothTrack</td>
-          <td>$10</td>
-          <td>App install</td>
-          <td>Better</td>
-          <td>~15ms</td>
-        </tr>
-        <tr>
-          <td>AITrack</td>
-          <td class="yes">Free</td>
-          <td>PC app install</td>
-          <td>Good</td>
-          <td>~30ms</td>
-        </tr>
-        <tr>
-          <td>TrackIR</td>
-          <td class="no">$150+</td>
-          <td>Hardware</td>
-          <td>Best</td>
-          <td>~5ms</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- How it works -->
 <section>
-  <h2>How it works</h2>
-  <p class="section-sub">All processing is local — nothing leaves your network</p>
-  <pre><span class="comment"># 1. Phone browser runs MediaPipe face detection at ~30fps</span>
-<span class="comment"># 2. Yaw / pitch / roll streamed over WebSocket (local WiFi)</span>
-<span class="comment"># 3. PC server writes FreeTrack shared memory</span>
-<span class="comment"># 4. Game reads shared memory — no middleware needed</span>
-
-Phone (Safari)  ──WebSocket──►  PC (server_windows.py)
-                                    ├─ <span class="green">FreeTrack</span> shared memory → AC, ETS2, BeamNG
-                                    └─ <span class="green">UDP 4242</span>               → OpenTrack → iRacing</pre>
+  <div class="two">
+    <div class="shot"><img src="img/phone.png" alt="The SimTrack phone page: camera view with lock brackets, a segmented yaw bar, pitch and roll readouts, a Center button and a five-position smoothing switch." width="500" height="900"><div class="cap">the phone page · propped on the monitor</div></div>
+    <div>
+      <span class="lbl">What you get</span>
+      <h2>Built like a wheel display</h2>
+      <ul>
+        <li><strong>Three axes</strong> — turn, nod, tilt — measured against your seated position, so the phone's angle on the monitor doesn't bleed into the reading.</li>
+        <li><strong>Smoothing switch</strong> — five positions, from raw to rock-steady.</li>
+        <li><strong>Center</strong> — one tap resets straight-ahead; it also centers itself when it first finds your face.</li>
+        <li><strong>The helmet</strong> — the PC window shows a 3D helmet mirroring you, so you know every axis is right before you launch a game.</li>
+        <li><strong>Stays awake</strong> — the phone won't sleep mid-race; if it drops, the view returns to center instead of freezing.</li>
+        <li><strong>Nothing leaves your network.</strong> No account, no cloud, no video upload.</li>
+      </ul>
+    </div>
+  </div>
 </section>
 
-<!-- Footer -->
-<footer>
-  <p>SimTrack is open source under the MIT license.</p>
-  <p style="margin-top:8px">
-    <a href="https://github.com/Palminze/simtrack">GitHub</a> ·
-    <a href="https://github.com/Palminze/simtrack/issues">Report an issue</a> ·
-    <a href="https://github.com/Palminze/simtrack/releases">Releases</a>
-  </p>
-</footer>
+<section id="games">
+  <span class="lbl">Games</span>
+  <h2>If it supports TrackIR or FreeTrack, it should work</h2>
+  <p class="sub">SimTrack speaks both standard head-tracking protocols directly — no OpenTrack in between. "Verified" means a real person ran it in that game this month. If yours doesn't work, refund, no questions.</p>
+  <div class="games">
+    <div class="tier"><h3><i>✓</i> Verified</h3><ul><li>Assetto Corsa</li></ul><p class="how">Tested on the developer's rig. This list grows from the works-with channel on Discord.</p></div>
+    <div class="tier expect"><h3><i>○</i> Expected</h3><ul><li>iRacing</li><li>Assetto Corsa Competizione</li><li>Euro Truck Simulator 2</li><li>American Truck Simulator</li><li>BeamNG.drive</li><li>rFactor 2</li><li>DiRT Rally 2.0</li></ul><p class="how">Standard TrackIR or FreeTrack support. Not yet confirmed by a tester — be the first.</p></div>
+    <div class="tier ot"><h3><i>⚙</i> Via OpenTrack</h3><ul><li>Anything OpenTrack outputs to</li></ul><p class="how">Optional. SimTrack also sends UDP on port 4242 for people who already run OpenTrack profiles.</p></div>
+  </div>
+</section>
 
+<section id="buy">
+  <span class="lbl">Price</span>
+  <div class="pricing">
+    <div>
+      <h2>One price, yours to keep</h2>
+      <p class="sub">No subscription. Updates during early access are included. The founder's price ends when early access does.</p>
+      <p class="sub">Windows 10/11 PC · iPhone or Android with a front camera · both on the same WiFi.</p>
+    </div>
+    <div class="pricebox">
+      <span class="lbl">Founder's price</span>
+      <div class="big">€14.99<small>then €19.99</small></div>
+      <ul>
+        <li>SimTrack for Windows, all early-access updates</li>
+        <li>Use it on your own PCs</li>
+        <li>14-day refund, any reason</li>
+        <li>Discord for setup help and the works-with list</li>
+      </ul>
+      <a class="wheelbtn primary buy-link" href="#buy">Get SimTrack · €14.99</a>
+      <p class="fine">Secure checkout by Lemon Squeezy · VAT included where it applies · license key by email.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <span class="lbl">FAQ</span>
+  <h2>Questions people actually ask</h2>
+  <div style="margin-top: 20px">
+    <details open><summary>Do I need an app on my phone?</summary><p>No. It's a web page served by your own PC. You install one small certificate once so the camera is allowed, then it's a bookmark — add it to your home screen.</p></details>
+    <details><summary>Why does it ask me to install a certificate?</summary><p>Phone browsers only allow the camera on secure links. SimTrack creates its own secure link to your PC — nothing goes through the internet. Installing the certificate is you telling your phone to trust your own PC. The setup page walks you through it for iPhone and Android.</p></details>
+    <details><summary>Does the camera video go anywhere?</summary><p>No. The face tracking runs on the phone. Only three angles per frame travel over your WiFi to your PC. There's no account and no cloud.</p></details>
+    <details><summary>Will it work with my game?</summary><p>Anything that supports TrackIR or FreeTrack head tracking, which is most PC sims. See the list above. If yours doesn't work, refund within 14 days.</p></details>
+    <details><summary>How does it compare to TrackIR?</summary><p>TrackIR is dedicated infrared hardware and it's excellent. SimTrack tracks three axes — turn, nod, tilt — from a phone camera. For looking into corners and checking mirrors it does the job; it's not a €150 IR sensor and doesn't pretend to be.</p></details>
+    <details><summary>Is there lag?</summary><p>A little — it's a camera over WiFi. Same WiFi network, 5 GHz, and a phone from the last few years keep it comfortable. The smoothing switch trades steadiness for speed.</p></details>
+    <details><summary>Windows warns me about the download</summary><p>Early-access builds may not be code-signed yet: click <em>More info → Run anyway</em>. Also click <em>Allow</em> on the firewall prompt, or your phone can't reach the PC.</p></details>
+    <details><summary>Mac? Console? VR?</summary><p>Windows PC only. Consoles can't take head-tracking input. VR headsets track your head themselves.</p></details>
+    <details><summary>Does it drain the phone?</summary><p>Yes — camera plus face tracking is heavy. Plug it in for long sessions. SimTrack keeps the screen awake by itself.</p></details>
+    <details><summary>Can I use it on two PCs?</summary><p>Yes. The key is yours; use it on your own machines.</p></details>
+    <details><summary>The view moves the wrong way</summary><p>Rare, and a one-line fix: a <code>config.json</code> next to SimTrack.exe with <code>{"invert_yaw": true}</code> (or pitch, or roll). Ask in Discord and we'll sort it in minutes.</p></details>
+    <details><summary>Refunds?</summary><p>14 days, any reason, through the store you bought from. If it didn't work in your game, tell us which — that's how the verified list grows.</p></details>
+  </div>
+  <p class="privacy">Early access means exactly that: it works, it's tested by real drivers on real rigs, and it's still being improved every week. You're buying the product and a say in where it goes.</p>
+</section>
+</div>
+
+<footer><div class="wrap">
+  <div class="row">
+    <a class="brand" href="#">SIM<span>TRACK</span></a>
+    <a href="terms.html">Terms &amp; license</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="refunds.html">Refunds</a>
+    <a id="discord" href="#">Discord</a>
+    <a id="mail" href="#">Support email</a>
+    <span>© 2026 SimTrack</span>
+  </div>
+</div></footer>
+
+<script>
+  // Fill these in once the store and community exist. One place, every button.
+  const CHECKOUT_URL = "";          // e.g. https://simtrack.lemonsqueezy.com/checkout/buy/xxxxxxxx
+  const DISCORD_URL  = "";          // e.g. https://discord.gg/xxxxxxx
+  const SUPPORT_MAIL = "";          // e.g. hello@simtrack.example
+  if (CHECKOUT_URL) document.querySelectorAll(".buy-link, nav .buy").forEach(a => a.href = CHECKOUT_URL);
+  if (DISCORD_URL) document.getElementById("discord").href = DISCORD_URL; else document.getElementById("discord").remove();
+  if (SUPPORT_MAIL) document.getElementById("mail").href = "mailto:" + SUPPORT_MAIL; else document.getElementById("mail").remove();
+</script>
 </body>
 </html>
