@@ -92,7 +92,8 @@ async def main():
 
     assets_dir = os.path.join(static_dir, "assets")
     asset_types = {".mjs": "text/javascript", ".js": "text/javascript",
-                   ".wasm": "application/wasm", ".task": "application/octet-stream"}
+                   ".wasm": "application/wasm", ".task": "application/octet-stream",
+                   ".woff2": "font/woff2"}
 
     async def asset(request):
         full = os.path.realpath(os.path.join(assets_dir, request.match_info["path"]))

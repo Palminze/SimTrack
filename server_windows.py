@@ -220,6 +220,7 @@ ASSET_TYPES = {
     ".js":   "text/javascript",
     ".wasm": "application/wasm",
     ".task": "application/octet-stream",
+    ".woff2": "font/woff2",
 }
 
 
@@ -299,15 +300,18 @@ def _server_thread():
 
 
 # ── GUI ───────────────────────────────────────────────────────────────────────
-BG     = "#0c0c0c"
-CARD   = "#111111"
-EDGE   = "#1e1e1e"
-GREEN  = "#00d96c"
+# Same palette as the phone page: asphalt, warm off-white, one papaya accent.
+BG     = "#111315"
+CARD   = "#1a1d21"
+INSET  = "#0b0d0f"
+EDGE   = "#2a2f36"
+ACCENT = "#ff7a1a"
+GREEN  = ACCENT          # historical name, used for "good" state below
 AMBER  = "#f5a623"
-RED    = "#ef4444"
-DIM    = "#3a3a3a"
-DIMTXT = "#555555"
-WHITE  = "#cccccc"
+RED    = "#ff3b3b"
+DIM    = "#3a4048"
+DIMTXT = "#8a9099"
+WHITE  = "#f2f0ea"
 FONT   = "Segoe UI"
 MONO   = "Consolas"
 
@@ -342,10 +346,13 @@ class SimTrackApp(tk.Tk):
 
     # ── layout ───────────────────────────────────────────────────────────────
     def _build(self):
-        tk.Label(self, text="SimTrack", bg=BG, fg=WHITE,
-                 font=(FONT, 20, "bold")).pack(pady=(22, 2), padx=20)
-        tk.Label(self, text="Head tracking for sim racing",
-                 bg=BG, fg=DIMTXT, font=(FONT, 9)).pack(pady=(0, 18), padx=20)
+        # Livery-style header: wordmark on a papaya block, like the phone page.
+        head = tk.Frame(self, bg=BG)
+        head.pack(fill="x", padx=20, pady=(20, 14))
+        tk.Label(head, text="  SIMTRACK  ", bg=ACCENT, fg=BG,
+                 font=(FONT, 15, "bold", "italic")).pack(side="left")
+        tk.Label(head, text="head tracking for sim racing", bg=BG, fg=DIMTXT,
+                 font=(FONT, 9)).pack(side="left", padx=(12, 0))
 
         # ── Connect phone ─────────────────────────────────────────────────────
         self._card_start("CONNECT YOUR PHONE")
@@ -400,13 +407,12 @@ class SimTrackApp(tk.Tk):
         self._roll_v  = tk.StringVar(value="+0.0°")
         for lbl, var in (("Yaw", self._yaw_v), ("Pitch", self._pitch_v),
                          ("Roll", self._roll_v)):
-            box = tk.Frame(row2, bg="#181818",
-                           highlightbackground=EDGE, highlightthickness=1)
+            box = tk.Frame(row2, bg=INSET)
             box.pack(side="left", expand=True, fill="x", padx=(0, 5))
-            tk.Label(box, text=lbl, bg="#181818", fg=DIMTXT,
+            tk.Label(box, text=lbl, bg=INSET, fg=DIMTXT,
                      font=(FONT, 8)).pack(pady=(7, 1))
-            tk.Label(box, textvariable=var, bg="#181818", fg=GREEN,
-                     font=(MONO, 15, "bold")).pack(pady=(0, 7))
+            tk.Label(box, textvariable=var, bg=INSET, fg=WHITE,
+                     font=(MONO, 17, "bold")).pack(pady=(0, 7))
         self._card_end()
 
         # ── Games ─────────────────────────────────────────────────────────────
@@ -451,10 +457,11 @@ class SimTrackApp(tk.Tk):
         self.after(1000, self._health)
 
     def _card_start(self, label):
-        outer = tk.Frame(self, bg=CARD, highlightbackground=EDGE, highlightthickness=1)
+        # Flat panels, no outlines: contrast against the ground does the work.
+        outer = tk.Frame(self, bg=CARD)
         outer.pack(fill="x", padx=20, pady=(0, 8))
-        tk.Label(outer, text=label, bg=CARD, fg=DIMTXT,
-                 font=(FONT, 7)).pack(anchor="w", padx=14, pady=(8, 4))
+        tk.Label(outer, text=label, bg=CARD, fg=ACCENT,
+                 font=(FONT, 7, "bold")).pack(anchor="w", padx=14, pady=(8, 4))
         self._card = outer
 
     def _card_end(self):

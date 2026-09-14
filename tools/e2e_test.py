@@ -84,7 +84,8 @@ async def main(tmp):
         print("\nSelf-hosted MediaPipe assets")
         for path, want_type in [("/assets/vision_bundle.mjs", "text/javascript"),
                                 ("/assets/wasm/vision_wasm_internal.wasm", "application/wasm"),
-                                ("/assets/face_landmarker.task", "application/octet-stream")]:
+                                ("/assets/face_landmarker.task", "application/octet-stream"),
+                                ("/assets/fonts/ChakraPetch-700i.woff2", "font/woff2")]:
             async with s.get(https + path, ssl=False) as r:
                 check(f"GET {path}", r.status == 200 and r.headers["Content-Type"] == want_type,
                       f"{r.status} {r.headers.get('Content-Type')}")
