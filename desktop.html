@@ -278,13 +278,32 @@ function apply(s) {
   if (!m.hidden) m.textContent = `Missing from bin/: ${s.missing_dlls.join(', ')} — games cannot connect until they exist.`;
 }
 
+// Two independent ways in, because a window with no QR and no address is
+// useless: Python pushes the first state on load, and the bridge (when it
+// attaches) then drives live updates.
+let booted = false;
+window.applyBoot = s => {
+  booted = true;
+  if (s.qr && s.qr.length) drawQR(s.qr);
+  if (s.state) apply(s.state);
+};
+
 async function boot() {
   const api = window.pywebview.api;
-  try { drawQR(await api.qr()); } catch (err) {}
+  booted = true;
+  try { const m = await api.qr(); if (m && m.length) drawQR(m); } catch (err) {}
   const tick = async () => { try { apply(await api.state()); } catch (err) {} };
   await tick(); setInterval(tick, 33);
 }
 if (window.pywebview && window.pywebview.api) boot(); else window.addEventListener('pywebviewready', boot);
+
+// If neither path delivered anything, say so instead of showing a blank box.
+setTimeout(() => {
+  if (booted) return;
+  $('status').textContent = 'Window could not reach SimTrack — close this and run start.bat --classic';
+  $('status').className = 'status error';
+  $('state').textContent = 'ERROR'; $('state').className = 'state error';
+}, 5000);
 </script>
 </body>
 </html>

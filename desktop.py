@@ -43,6 +43,23 @@ def run(state_fn, qr_fn, base_dir: str, title: str = "SimTrack") -> bool:
         print(f"[desktop] could not create window ({exc}); using classic window")
         return False
 
+    # Push the QR and first state in as soon as the document loads, rather
+    # than waiting for the page to call back through the js_api bridge. If
+    # that bridge fails to attach, the window would otherwise sit there with
+    # a blank QR square and no address -- the user's only way in, gone.
+    def _bootstrap():
+        try:
+            import json
+            payload = json.dumps({"state": state_fn(), "qr": qr_fn()})
+            window.evaluate_js(f"window.applyBoot && window.applyBoot({payload})")
+        except Exception as exc:                         # noqa: BLE001
+            print(f"[desktop] could not push initial state ({exc})")
+
+    try:
+        window.events.loaded += _bootstrap
+    except Exception:                                    # noqa: BLE001
+        pass
+
     # Prefer the real signal; fall back to timing if this pywebview build
     # does not expose the event.
     observed = True
